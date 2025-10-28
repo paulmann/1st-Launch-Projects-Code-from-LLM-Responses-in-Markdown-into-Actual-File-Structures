@@ -108,85 +108,79 @@ log_to_file() {
 # Display usage information with better formatting
 show_help() {
     show_banner
-    cat << EOF
-
-${CYAN}USAGE:${NC}
-    $0 [OPTIONS] <input_file> [target_directory]
-
-${CYAN}DESCRIPTION:${NC}
-    ${SCRIPT_DESCRIPTION}
-    
-    This tool extracts file structures and code content from LLM responses in markdown format
-    and creates actual directory structures with properly formatted files.
-
-${CYAN}MODES:${NC}
-    ${GREEN}Create Mode${NC} (default): Creates new project structure from LLM response
-    ${BLUE}Update Mode${NC} (-U): Updates existing files with content from LLM response
-    ${YELLOW}Project Mode${NC} (-P): Enhanced creation with project metadata
-
-${CYAN}OPTIONS:${NC}
-    -h, --help              Show this help message and exit
-    -v, --verbose           Enable verbose output with debug information
-    -d, --dry-run           Simulate operations without making changes
-    -f, --force             Overwrite existing files without prompting
-    -b, --backup            Backup existing files before overwriting
-    -l, --log FILE          Write detailed log to specified file
-    -V, --version           Show version information
-    -a, --find-all          Find and process ALL tree structures in the file
-    -i, --ask               Find all trees and ask user to select one
-    -n, --tree-number N     Process specific tree number (default: 1)
-    -C, --no-code           Do not extract code content from markdown
-    -U, --update            Update mode: find existing files and update with LLM content
-    -P, --project           Project mode: enhanced creation with README and project info
-
-${CYAN}ARGUMENTS:${NC}
-    ${MAGENTA}input_file${NC}              Markdown file containing LLM response with code and file structures
-    ${MAGENTA}target_directory${NC}        Directory where project will be created/updated (default: current directory)
-
-${CYAN}EXAMPLES:${NC}
-    ${GREEN}# Create new project from LLM response${NC}
-    $0 deepseek_response.md ./my-project
-
-    ${BLUE}# Update existing project with latest LLM code${NC}
-    $0 -U documentation.md ./existing-project
-
-    ${YELLOW}# Create enhanced project with metadata${NC}
-    $0 -P llm_design.md ./new-app
-
-    ${CYAN}# Interactive selection from multiple structures${NC}
-    $0 -i complex_design.md
-
-    ${MAGENTA}# Update with backups and verbose logging${NC}
-    $0 -U -b -v tutorial.md src/
-
-${CYAN}SUPPORTED LLMS:${NC}
-    • DeepSeek • ChatGPT • Claude • Gemini • Copilot • and other AI assistants
-
-${CYAN}FEATURES:${NC}
-    • 📁 Smart tree structure detection in markdown
-    • 💻 Code block extraction with syntax highlighting
-    • 🔄 Update mode for existing projects
-    • 📝 Project metadata generation
-    • 🛡️ Safe file operations with backups
-    • 🔍 Multiple encoding support (UTF-8, Windows-1252)
-    • 📊 Progress tracking and detailed reporting
-
-${YELLOW}Report issues: https://github.com/username/llm-projector/issues${NC}
-EOF
+    echo -e ""
+    echo -e "${CYAN}USAGE:${NC}"
+    echo -e "    $0 [OPTIONS] <input_file> [target_directory]"
+    echo -e ""
+    echo -e "${CYAN}DESCRIPTION:${NC}"
+    echo -e "    ${SCRIPT_DESCRIPTION}"
+    echo -e "    "
+    echo -e "    This tool extracts file structures and code content from LLM responses in markdown format"
+    echo -e "    and creates actual directory structures with properly formatted files."
+    echo -e ""
+    echo -e "${CYAN}MODES:${NC}"
+    echo -e "    ${GREEN}Create Mode${NC} (default): Creates new project structure from LLM response"
+    echo -e "    ${BLUE}Update Mode${NC} (-U): Updates existing files with content from LLM response"
+    echo -e "    ${YELLOW}Project Mode${NC} (-P): Enhanced creation with project metadata"
+    echo -e ""
+    echo -e "${CYAN}OPTIONS:${NC}"
+    echo -e "    -h, --help              Show this help message and exit"
+    echo -e "    -v, --verbose           Enable verbose output with debug information"
+    echo -e "    -d, --dry-run           Simulate operations without making changes"
+    echo -e "    -f, --force             Overwrite existing files without prompting"
+    echo -e "    -b, --backup            Backup existing files before overwriting"
+    echo -e "    -l, --log FILE          Write detailed log to specified file"
+    echo -e "    -V, --version           Show version information"
+    echo -e "    -a, --find-all          Find and process ALL tree structures in the file"
+    echo -e "    -i, --ask               Find all trees and ask user to select one"
+    echo -e "    -n, --tree-number N     Process specific tree number (default: 1)"
+    echo -e "    -C, --no-code           Do not extract code content from markdown"
+    echo -e "    -U, --update            Update mode: find existing files and update with LLM content"
+    echo -e "    -P, --project           Project mode: enhanced creation with README and project info"
+    echo -e ""
+    echo -e "${CYAN}ARGUMENTS:${NC}"
+    echo -e "    ${MAGENTA}input_file${NC}              Markdown file containing LLM response with code and file structures"
+    echo -e "    ${MAGENTA}target_directory${NC}        Directory where project will be created/updated (default: current directory)"
+    echo -e ""
+    echo -e "${CYAN}EXAMPLES:${NC}"
+    echo -e "    ${GREEN}# Create new project from LLM response${NC}"
+    echo -e "    $0 deepseek_response.md ./my-project"
+    echo -e ""
+    echo -e "    ${BLUE}# Update existing project with latest LLM code${NC}"
+    echo -e "    $0 -U documentation.md ./existing-project"
+    echo -e ""
+    echo -e "    ${YELLOW}# Create enhanced project with metadata${NC}"
+    echo -e "    $0 -P llm_design.md ./new-app"
+    echo -e ""
+    echo -e "    ${CYAN}# Interactive selection from multiple structures${NC}"
+    echo -e "    $0 -i complex_design.md"
+    echo -e ""
+    echo -e "    ${MAGENTA}# Update with backups and verbose logging${NC}"
+    echo -e "    $0 -U -b -v tutorial.md src/"
+    echo -e ""
+    echo -e "${CYAN}SUPPORTED LLMS:${NC}"
+    echo -e "    • DeepSeek • ChatGPT • Claude • Gemini • Copilot • and other AI assistants"
+    echo -e ""
+    echo -e "${CYAN}FEATURES:${NC}"
+    echo -e "    • 📁 Smart tree structure detection in markdown"
+    echo -e "    • 💻 Code block extraction with syntax highlighting"
+    echo -e "    • 🔄 Update mode for existing projects"
+    echo -e "    • 📝 Project metadata generation"
+    echo -e "    • 🛡️ Safe file operations with backups"
+    echo -e "    • 🔍 Multiple encoding support (UTF-8, Windows-1252)"
+    echo -e "    • 📊 Progress tracking and detailed reporting"
+    echo -e ""
+    echo -e "${YELLOW}Report issues: https://github.com/username/llm-projector/issues${NC}"
 }
 
 # Display version information
 show_version() {
     show_banner
-    cat << EOF
-
-${CYAN}Version:${NC}       ${SCRIPT_VERSION}
-${CYAN}Author:${NC}        ${SCRIPT_AUTHOR}
-${CYAN}License:${NC}       MIT
-${CYAN}Description:${NC}   ${SCRIPT_DESCRIPTION}
-
-${GREEN}Transform LLM conversations into working code projects!${NC}
-EOF
+    printf "\n${CYAN}Version:${NC}       ${SCRIPT_VERSION}\n"
+    printf "${CYAN}Author:${NC}        ${SCRIPT_AUTHOR}\n"
+    printf "${CYAN}License:${NC}       MIT\n"
+    printf "${CYAN}Description:${NC}   ${SCRIPT_DESCRIPTION}\n\n"
+    printf "${GREEN}Transform LLM conversations into working code projects!${NC}\n"
 }
 
 # Parse command line arguments
