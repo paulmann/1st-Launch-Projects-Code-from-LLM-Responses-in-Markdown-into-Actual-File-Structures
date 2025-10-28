@@ -1168,6 +1168,7 @@ cleanup() {
 }
 
 # Main execution function
+# Main execution function
 main() {
     # Set up signal handlers
     trap cleanup INT TERM
@@ -1176,11 +1177,25 @@ main() {
     if [[ "$VERBOSE" == true ]] || [[ "$DRY_RUN" == true ]] || [[ "$ASK_MODE" == true ]]; then
         show_banner
     fi
+
+    # Check for help and version options before parsing
+    for arg in "$@"; do
+        case "$arg" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -V|--version)
+                show_version
+                exit 0
+                ;;
+        esac
+    done
     
     # Parse command line arguments
-    local args
-    local input_file
-    local target_dir
+    local args=("$@")
+    local input_file=""
+    local target_dir="."
     local processed_file
     local total_trees
     local selected_trees=()
@@ -1190,22 +1205,108 @@ main() {
     local tree_id
     local selected_index
     
-    # Use read to properly handle the array
-    IFS=' ' read -ra args <<< "$(parse_arguments "$@")"
-    
-    if [[ ${#args[@]} -eq 0 ]]; then
+    # Parse arguments directly in main function
+    while [[ ${#args[@]} -gt 0 ]]; do
+        case "${args[0]}" in
+            -v|--verbose)
+                VERBOSE=true
+                args=("${args[@]:1}")
+                ;;
+            -d|--dry-run)
+                DRY_RUN=true
+                log_info "Dry run mode enabled - no changes will be made"
+                args=("${args[@]:1}")
+                ;;
+            -f|--force)
+                FORCE_OVERWRITE=true
+                args=("${args[@]:1}")
+                ;;
+            -b|--backup)
+                BACKUP_EXISTING=true
+                args=("${args[@]:1}")
+                ;;
+            -l|--log)
+                if [[ -z "${args[1]:-}" ]]; then
+                    log_error "Log file path not specified"
+                    exit 1
+                fi
+                LOG_FILE="${args[1]}"
+                args=("${args[@]:2}")
+                ;;
+            -a|--find-all|--FA)
+                FIND_ALL=true
+                args=("${args[@]:1}")
+                ;;
+            -i|--ask)
+                ASK_MODE=true
+                args=("${args[@]:1}")
+                ;;
+            -n|--tree-number)
+                if [[ -z "${args[1]:-}" ]] || ! [[ "${args[1]}" =~ ^[0-9]+$ ]]; then
+                    log_error "Invalid tree number: ${args[1]}. Must be a positive integer."
+                    exit 1
+                fi
+                TREE_NUMBER="${args[1]}"
+                args=("${args[@]:2}")
+                ;;
+            -C|--no-code)
+                EXTRACT_CODE=false
+                args=("${args[@]:1}")
+                ;;
+            -U|--update)
+                UPDATE_MODE=true
+                PROJECT_MODE="update"
+                args=("${args[@]:1}")
+                ;;
+            -P|--project)
+                PROJECT_MODE="project"
+                args=("${args[@]:1}")
+                ;;
+            --)
+                args=("${args[@]:1}")
+                # Remaining arguments after -- are treated as positional
+                if [[ ${#args[@]} -gt 0 ]]; then
+                    if [[ -z "$input_file" ]]; then
+                        input_file="${args[0]}"
+                        args=("${args[@]:1}")
+                    fi
+                    if [[ ${#args[@]} -gt 0 ]]; then
+                        target_dir="${args[0]}"
+                        args=("${args[@]:1}")
+                    fi
+                fi
+                break
+                ;;
+            -*)
+                log_error "Unknown option: ${args[0]}"
+                show_help
+                exit 1
+                ;;
+            *)
+                # Positional arguments
+                if [[ -z "$input_file" ]]; then
+                    input_file="${args[0]}"
+                else
+                    target_dir="${args[0]}"
+                fi
+                args=("${args[@]:1}")
+                ;;
+        esac
+    done
+
+    # Validate that input file is provided
+    if [[ -z "$input_file" ]]; then
+        log_error "Input file not specified"
+        show_help
         exit 1
     fi
-    
-    input_file="${args[0]}"
-    target_dir="${args[1]:-.}"
-    
+
     # Handle encoding and create temporary UTF-8 file if needed
     processed_file=$(ensure_utf8 "$input_file")
     if [[ "$processed_file" != "$input_file" ]]; then
         TEMP_FILE="$processed_file"
     fi
-    
+
     # Validate input
     target_dir=$(validate_input "$processed_file" "$target_dir")
     
@@ -1321,7 +1422,6 @@ main() {
         exit 1
     fi
 }
-
 # Entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
