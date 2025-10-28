@@ -10,7 +10,6 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # Script metadata
-SCRIPT_NAME="llm-projector"
 SCRIPT_VERSION="3.1.0"
 SCRIPT_AUTHOR="GitHub Community"
 SCRIPT_DESCRIPTION="DeepSeek and other LLM Answers to Files Converter - Projects code from markdown responses into file structures"
@@ -22,8 +21,6 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
-ORANGE='\033[0;33m'
-PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Banner art
@@ -241,7 +238,7 @@ parse_arguments() {
                 ;;
             -n|--tree-number)
                 if [[ -z "${2:-}" ]] || ! [[ "$2" =~ ^[0-9]+$ ]]; then
-                    log_error "Invalid tree number: '$2'. Must be a positive integer."
+                    log_error "Invalid tree number: $2. Must be a positive integer."
                     exit 1
                 fi
                 TREE_NUMBER="$2"
@@ -306,7 +303,7 @@ detect_encoding() {
                 echo "WINDOWS-1252"
                 ;;
             *)
-                log_warning "Unknown encoding '$encoding_info', assuming UTF-8"
+                log_warning "Unknown encoding $encoding_info, assuming UTF-8"
                 echo "UTF-8"
                 ;;
         esac
@@ -359,38 +356,38 @@ validate_input() {
 
     # Validate input file
     if [[ ! -f "$input_file" ]]; then
-        log_error "Input file '$input_file' not found"
+        log_error "Input file $input_file not found"
         exit 1
     fi
 
     if [[ ! -r "$input_file" ]]; then
-        log_error "Cannot read input file '$input_file'"
+        log_error "Cannot read input file $input_file"
         exit 1
     fi
 
     if [[ ! -s "$input_file" ]]; then
-        log_error "Input file '$input_file' is empty"
+        log_error "Input file $input_file is empty"
         exit 1
     fi
 
     # Validate target directory based on mode
     if [[ "$UPDATE_MODE" == true ]]; then
         if [[ ! -d "$target_dir" ]]; then
-            log_error "Target directory '$target_dir' does not exist (required for update mode)"
+            log_error "Target directory $target_dir does not exist (required for update mode)"
             exit 1
         fi
     else
         if [[ ! -d "$target_dir" ]]; then
             log_progress "Creating target directory: $target_dir"
             mkdir -p "$target_dir" || {
-                log_error "Cannot create target directory '$target_dir'"
+                log_error "Cannot create target directory $target_dir"
                 exit 1
             }
         fi
     fi
 
     if [[ ! -w "$target_dir" ]]; then
-        log_error "Cannot write to target directory '$target_dir'"
+        log_error "Cannot write to target directory $target_dir"
         exit 1
     fi
 
@@ -403,6 +400,8 @@ validate_input() {
 # Get absolute path in cross-platform way
 get_absolute_path() {
     local path="$1"
+    local dir
+    local file
     
     # Try readlink -f first (Linux)
     if command -v readlink >/dev/null 2>&1; then
@@ -415,8 +414,8 @@ get_absolute_path() {
     if [[ -d "$path" ]]; then
         (cd "$path" && pwd)
     else
-        local dir=$(dirname "$path")
-        local file=$(basename "$path")
+        dir=$(dirname "$path")
+        file=$(basename "$path")
         echo "$(cd "$dir" && pwd)/$file"
     fi
 }
@@ -431,6 +430,10 @@ extract_code_blocks() {
     local -A code_blocks
     
     log_progress "Extracting code blocks from LLM response..."
+    
+    # Read file content to avoid multiple reads
+    local file_content
+    file_content=$(cat "$input_file")
     
     while IFS= read -r line || [[ -n "$line" ]]; do
         # Remove carriage returns for Windows compatibility
@@ -461,7 +464,8 @@ extract_code_blocks() {
         fi
         
         # Check for code block start with optional language specification
-        if [[ "$line" =~ ^[[:space:]]*```([a-zA-Z0-9+]*) ]]; then
+        local code_fence_pattern='^[[:space:]]*```([a-zA-Z0-9+]*)$'
+        if [[ "$line" =~ $code_fence_pattern ]]; then
             if [[ "$in_code_block" == true ]]; then
                 # End of code block
                 in_code_block=false
@@ -486,12 +490,12 @@ extract_code_blocks() {
         # Check for PHP file markers (common in PHP documentation)
         if [[ ! "$in_code_block" == true ]] && [[ "$line" =~ ^[[:space:]]*(\<\?php|namespace[[:space:]]+|class[[:space:]]+|interface[[:space:]]+|trait[[:space:]]+) ]]; then
             if [[ -z "$current_file" ]]; then
-                # Try to extract filename from context (look back a few lines)
+                # Extract filename from context using the pre-loaded content
                 local prev_line
                 if command -v tac >/dev/null 2>&1; then
-                    prev_line=$(grep -B 5 -A 1 "^$line" "$input_file" | head -6 | tac | grep -E '\*\*.*\.php\*\*' | head -1)
+                    prev_line=$(echo "$file_content" | grep -B 5 -A 1 "^$line" | head -6 | tac | grep -E '\*\*.*\.php\*\*' | head -1)
                 else
-                    prev_line=$(grep -B 5 "^$line" "$input_file" | head -6 | tail -r 2>/dev/null | grep -E '\*\*.*\.php\*\*' | head -1)
+                    prev_line=$(echo "$file_content" | grep -B 5 "^$line" | head -6 | tail -r 2>/dev/null | grep -E '\*\*.*\.php\*\*' | head -1)
                 fi
                 if [[ "$prev_line" =~ \*\*([a-zA-Z0-9_./-]+\.php)\*\* ]]; then
                     current_file="${BASH_REMATCH[1]}"
@@ -505,7 +509,7 @@ extract_code_blocks() {
             current_content+="$line"$'\n'
         fi
         
-    done < "$input_file"
+    done <<< "$file_content"
     
     # Handle case where file ends during code block
     if [[ "$in_code_block" == true ]] && [[ -n "$current_file" && -n "$current_content" ]]; then
@@ -530,7 +534,7 @@ extract_code_blocks() {
     
     # Return the code blocks associative array
     for key in "${!code_blocks[@]}"; do
-        echo "$key|${code_blocks[$key]}"
+        echo "${key}|${code_blocks[$key]}"
     done
 }
 
@@ -544,12 +548,16 @@ find_tree_structures() {
     
     log_progress "Scanning for project structures in LLM response..."
     
+    # Read file content once to avoid multiple reads
+    local file_content
+    file_content=$(cat "$input_file")
+    
     while IFS= read -r line || [[ -n "$line" ]]; do
         # Remove carriage returns for Windows compatibility
         line=$(echo "$line" | tr -d '\r')
         
-        # Check if we're entering a code block
-        if [[ "$line" =~ ^[[:space:]]*``` ]]; then
+        # Check for code block start with optional language specification
+        if [[ "$line" =~ ^[[:space:]]*\`\`\`([a-zA-Z0-9+]*) ]]; then
             if [[ "$in_tree_block" == true ]]; then
                 # End of code block
                 in_tree_block=false
@@ -581,7 +589,7 @@ find_tree_structures() {
         elif [[ -n "$current_tree" ]] && [[ "$in_tree_block" == false ]]; then
             # Outside code block, check if we should continue or end the tree
             if [[ "$line" =~ ^[[:space:]]*$ ]] || 
-               ([[ ! "$line" =~ [/\\] ]] && [[ ! "$line" =~ [├│└──┌] ]]); then
+               { [[ ! "$line" =~ [/\\] ]] && [[ ! "$line" =~ [├│└──┌] ]]; }; then
                 # Empty line or line without path/tree characters - likely end of tree
                 if [[ $(echo "$current_tree" | wc -l) -gt 1 ]]; then
                     ((tree_count++)) || true
@@ -598,9 +606,9 @@ find_tree_structures() {
             current_tree+=$'\n'"$line"
         fi
         
-    done < "$input_file"
+    done <<< "$file_content"
     
-    # Don't forget the last tree if file ends without blank line
+    # Do not forget the last tree...
     if [[ -n "$current_tree" ]] && [[ $(echo "$current_tree" | wc -l) -gt 1 ]]; then
         ((tree_count++)) || true
         trees+=("$current_tree")
@@ -608,7 +616,7 @@ find_tree_structures() {
     fi
     
     if [[ $tree_count -eq 0 ]]; then
-        log_error "No project structures found in '$input_file'"
+        log_error "No project structures found in $input_file"
         log_error "Looking for tree patterns with: ├, │, └, ─, ┌ characters and directory structures"
         log_error "Make sure your LLM response includes proper file tree diagrams"
         exit 1
@@ -617,13 +625,14 @@ find_tree_structures() {
     log_success "Found $tree_count project structure(s) in LLM response"
     
     # Return the trees array
-    printf '%s\n' "${trees[@]}"
+    printf "%s\n" "${trees[@]}"
 }
 
 # Display found trees and let user select one with better UI
 select_tree_interactive() {
     local trees=("$@")
     local count=${#trees[@]}
+    local line_count
     
     echo -e "\n${CYAN}🔄 Found $count project structure(s) in LLM response:${NC}"
     echo -e "${CYAN}=====================================================${NC}"
@@ -632,7 +641,7 @@ select_tree_interactive() {
         echo -e "\n${YELLOW}🌳 Structure $((i+1)):${NC}"
         echo -e "${BLUE}$(echo "${trees[$i]}" | head -1)${NC}"
         
-        local line_count=$(echo "${trees[$i]}" | wc -l)
+        line_count=$(echo "${trees[$i]}" | wc -l)
         if [[ $line_count -gt 8 ]]; then
             echo "${trees[$i]}" | head -4
             echo -e "${MAGENTA}    ... ($((line_count - 8)) more lines) ...${NC}"
@@ -644,7 +653,7 @@ select_tree_interactive() {
     done
     
     while true; do
-        echo -n -e "${GREEN}🎯 Select structure to project (1-$count) or 'q' to quit: ${NC}"
+        echo -n -e "${GREEN}🎯 Select structure to project (1-$count) or q to quit: ${NC}"
         read -r choice
         
         case "$choice" in
@@ -680,9 +689,9 @@ sanitize_path() {
     # Collapse multiple slashes and remove leading ./ ../
     path=$(echo "$path" | sed 's|//*|/|g; s|^\./||; s|^\.\./||')
     
-    # Ensure we don't have absolute paths or path traversal
-    if [[ "$path" =~ ^/ ]]; then
-        path=$(echo "$path" | sed 's|^/||')
+    # Ensure we do not have absolute paths or path traversal
+    if [[ "$path" == /* ]]; then
+        path="${path#/}"
     fi
     
     # Limit path length (prevent extremely long paths)
@@ -733,7 +742,7 @@ get_file_content() {
     base_name=$(basename "$file_path")
     for key in "${!CODE_BLOCKS[@]}"; do
         if [[ "$(basename "$key")" == "$base_name" ]]; then
-            log_debug "Using code block for '$base_name' (original path: $key)"
+            log_debug "Using code block for $base_name (original path: $key)"
             echo "${CODE_BLOCKS[$key]}"
             return
         fi
@@ -742,7 +751,7 @@ get_file_content() {
     # Try partial path matching
     for key in "${!CODE_BLOCKS[@]}"; do
         if [[ "$key" == *"$base_name" ]]; then
-            log_debug "Using partial match for '$base_name' (found: $key)"
+            log_debug "Using partial match for $base_name (found: $key)"
             echo "${CODE_BLOCKS[$key]}"
             return
         fi
@@ -756,6 +765,8 @@ get_file_content() {
 create_project_metadata() {
     local target_dir="$1"
     local input_file="$2"
+    local project_name
+    local current_date
     
     if [[ "$PROJECT_MODE" != "project" ]] || [[ "$DRY_RUN" == true ]]; then
         return 0
@@ -763,8 +774,8 @@ create_project_metadata() {
     
     log_progress "Creating project metadata files..."
     
-    local project_name=$(basename "$target_dir")
-    local current_date=$(date '+%Y-%m-%d')
+    project_name=$(basename "$target_dir")
+    current_date=$(date '+%Y-%m-%d')
     
     # Create README.md
     local readme_file="${target_dir}/README.md"
@@ -815,19 +826,23 @@ EOF
 find_existing_files() {
     local target_dir="$1"
     local tree_block="$2"
+    local item_name
+    local file_name
+    local full_file_path
+    local file_content
     
     # Extract file list from tree
-    local -a tree_files
+    local -a tree_files=()
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         
         # Extract item name (remove tree characters and trim)
-        local item_name=$(echo "$line" | sed 's/^[|\ \-]*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        item_name=$(echo "$line" | sed 's/^[|\ \-]*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         [[ -z "$item_name" ]] && continue
         
-        # Check if it's a file (not ending with /)
+        # Check if it is a file (not ending with /)
         if [[ ! "$item_name" =~ /$ ]]; then
-            local file_name=$(sanitize_path "$item_name")
+            file_name=$(sanitize_path "$item_name")
             tree_files+=("$file_name")
         fi
     done < <(normalize_tree_lines "$tree_block")
@@ -840,8 +855,8 @@ find_existing_files() {
     
     # Find and update existing files
     for relative_file in "${tree_files[@]}"; do
-        local full_file_path="${target_dir%/}/$relative_file"
-        local file_content=""
+        full_file_path="${target_dir%/}/$relative_file"
+        file_content=""
         
         if [[ -f "$full_file_path" ]]; then
             # Get content for this file if available
@@ -874,14 +889,22 @@ parse_and_create_structure() {
     local tree_block="$1"
     local target_dir="$2"
     local tree_id="${3:-unknown}"
-    
-    local -a dir_stack=()
+    local dir_stack=()
     local current_path="$target_dir"
     local line_count=0
     local created_dirs=0
     local created_files=0
     local files_with_content=0
     local skipped_items=0
+    local indent
+    local level
+    local tree_chars
+    local item_name
+    local dir_name
+    local full_dir_path
+    local file_name
+    local full_file_path
+    local file_content
     
     log_progress "Projecting structure #$tree_id into: $target_dir"
     
@@ -894,7 +917,6 @@ parse_and_create_structure() {
         log_debug "Processing line $line_count: $line"
         
         # Calculate indentation level
-        local indent
         if [[ "$line" =~ ^([|\ \-]*) ]]; then
             indent="${BASH_REMATCH[1]}"
         else
@@ -902,9 +924,9 @@ parse_and_create_structure() {
         fi
         
         # Calculate level based on indentation
-        local level=0
+        level=0
         if [[ -n "$indent" ]]; then
-            local tree_chars=$(echo "$indent" | tr -d ' ' | wc -c)
+            tree_chars=$(echo "$indent" | tr -d ' ' | wc -c)
             level=$(( (tree_chars - 1) / 2 ))
         fi
         
@@ -920,15 +942,15 @@ parse_and_create_structure() {
         done
         
         # Extract item name (remove tree characters and trim)
-        local item_name=$(echo "$line" | sed 's/^[|\ \-]*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        item_name=$(echo "$line" | sed 's/^[|\ \-]*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         # Skip if no item name found
         [[ -z "$item_name" ]] && continue
         
-        # Check if it's a directory (ends with /)
+        # Check if it is a directory (ends with /)
         if [[ "$item_name" =~ /$ ]]; then
-            local dir_name=$(sanitize_path "${item_name%/}")
-            local full_dir_path="${current_path%/}/$dir_name"
+            dir_name=$(sanitize_path "${item_name%/}")
+            full_dir_path="${current_path%/}/$dir_name"
             
             if create_directory "$full_dir_path" "$line_count"; then
                 dir_stack+=("$dir_name")
@@ -939,10 +961,10 @@ parse_and_create_structure() {
             fi
             
         else
-            # It's a file
-            local file_name=$(sanitize_path "$item_name")
-            local full_file_path="${current_path%/}/$file_name"
-            local file_content=""
+            # It is a file
+            file_name=$(sanitize_path "$item_name")
+            full_file_path="${current_path%/}/$file_name"
+            file_content=""
             
             # Get content for this file if available
             if [[ "$EXTRACT_CODE" == true ]]; then
@@ -979,9 +1001,10 @@ parse_and_create_structure() {
 # Backup existing file if backup is enabled
 backup_file() {
     local file_path="$1"
+    local backup_path
     
     if [[ "$BACKUP_EXISTING" == true && -f "$file_path" ]]; then
-        local backup_path="${file_path}.bak.$(date +%Y%m%d_%H%M%S)"
+        backup_path="${file_path}.bak.$(date +%Y%m%d_%H%M%S)"
         if cp "$file_path" "$backup_path" 2>/dev/null; then
             log_info "Backed up: $file_path → $backup_path"
         else
@@ -994,6 +1017,7 @@ backup_file() {
 update_file() {
     local file_path="$1"
     local file_content="$2"
+    local current_content
     
     # Check if file exists and is regular file
     if [[ ! -f "$file_path" ]]; then
@@ -1008,7 +1032,6 @@ update_file() {
             log_info "Updating: $file_path"
         else
             # Check if content is different
-            local current_content
             current_content=$(cat "$file_path" 2>/dev/null || echo "")
             if [[ "$current_content" == "$file_content" ]]; then
                 log_debug "Content unchanged: $file_path"
@@ -1073,7 +1096,9 @@ create_file() {
     local file_path="$1"
     local line_number="$2"
     local file_content="${3:-}"
-    local dir_path=$(dirname "$file_path")
+    local dir_path
+    
+    dir_path=$(dirname "$file_path")
     
     # Ensure parent directory exists
     if [[ ! -d "$dir_path" ]]; then
@@ -1154,17 +1179,28 @@ main() {
     
     # Parse command line arguments
     local args
-    args=($(parse_arguments "$@"))
+    local input_file
+    local target_dir
+    local processed_file
+    local total_trees
+    local selected_trees=()
+    local processed_count=0
+    local error_count=0
+    local tree_index
+    local tree_id
+    local selected_index
+    
+    # Use read to properly handle the array
+    IFS=' ' read -ra args <<< "$(parse_arguments "$@")"
     
     if [[ ${#args[@]} -eq 0 ]]; then
         exit 1
     fi
     
-    local input_file="${args[0]}"
-    local target_dir="${args[1]:-.}"
+    input_file="${args[0]}"
+    target_dir="${args[1]:-.}"
     
     # Handle encoding and create temporary UTF-8 file if needed
-    local processed_file
     processed_file=$(ensure_utf8 "$input_file")
     if [[ "$processed_file" != "$input_file" ]]; then
         TEMP_FILE="$processed_file"
@@ -1189,17 +1225,18 @@ main() {
     log_progress "Analyzing LLM response for project structures..."
     mapfile -t TREE_BLOCKS < <(find_tree_structures "$processed_file")
     
-    local total_trees=${#TREE_BLOCKS[@]}
-    local selected_trees=()
+    total_trees=${#TREE_BLOCKS[@]}
     
     # Determine which trees to process
     if [[ "$FIND_ALL" == true ]]; then
         # Process all trees
-        selected_trees=($(seq 0 $((total_trees-1))))
+        for i in $(seq 0 $((total_trees-1))); do
+            selected_trees+=("$i")
+        done
         log_info "Processing ALL $total_trees project structure(s)"
     elif [[ "$ASK_MODE" == true ]]; then
         # Interactive selection
-        local selected_index=$(select_tree_interactive "${TREE_BLOCKS[@]}")
+        selected_index=$(select_tree_interactive "${TREE_BLOCKS[@]}")
         selected_trees=("$selected_index")
         log_info "Processing selected structure #$((selected_index+1))"
     else
@@ -1213,11 +1250,8 @@ main() {
     fi
     
     # Process selected trees
-    local processed_count=0
-    local error_count=0
-    
     for tree_index in "${selected_trees[@]}"; do
-        local tree_id=$((tree_index+1))
+        tree_id=$((tree_index+1))
         
         if [[ $tree_index -ge 0 ]] && [[ $tree_index -lt $total_trees ]]; then
             echo -e "\n${CYAN}🚀 Processing Structure #$tree_id${NC}"
