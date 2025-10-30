@@ -1,0 +1,474 @@
+===============================================================================
+MD to FILES PARSER - COPY-PASTE PROMPTS
+===============================================================================
+
+USE THIS FILE: Copy any prompt below and paste directly into your LLM request
+
+===============================================================================
+PROMPT #1: MINIMAL (Fastest)
+===============================================================================
+
+Format for MD to Files Parser (v5.1.3+):
+- Complete project tree with project/ root
+- Each file marked: [file name]: path on first line
+- Language identifiers (python, js, etc.)
+
+===============================================================================
+PROMPT #2: SHORT (Recommended)
+===============================================================================
+
+Format your response for MD to Files Parser (v5.1.3+):
+- Start with complete project tree using ├──, │, └── symbols
+- Wrap project tree in code block with ```text notation
+- Each file's code block must have [file name]: path/to/file.ext as first line
+- Use appropriate language identifiers (python, javascript, etc.)
+- Include all required configuration and dependency files
+- Provide clear setup instructions
+
+===============================================================================
+PROMPT #3: MEDIUM (Detailed)
+===============================================================================
+
+Please structure your code generation response for compatibility with MD to Files Parser:
+
+1. PROJECT STRUCTURE: Display the complete directory tree at the beginning
+   ```text
+   project/
+   ├── directory/
+   │   └── file.ext
+   └── config.json
+   ```
+
+2. CODE DELIVERY: Each file must be provided in a code block with:
+   - Language identifier: ```python, ```javascript, etc.
+   - File marker as first line: // [file name]: src/main.py
+   - Complete, production-ready code with all imports
+   - Documentation and error handling included
+
+3. FILE MARKERS: Use exact format - [file name]: path/to/file.ext
+   - Works with any comment style: //, #, --, REM
+   - Place immediately after code fence
+   - Use forward slashes for paths (works cross-platform)
+
+4. COMPLETENESS: Include ALL files needed for project to run:
+   - Configuration files (.env, .gitignore, etc.)
+   - Dependency specifications (requirements.txt, package.json)
+   - README with setup and usage instructions
+   - Test files if applicable
+
+This format enables automatic project structure generation via MD to Files script.
+
+===============================================================================
+PROMPT #4: PYTHON PROJECT
+===============================================================================
+
+Generate a Python [PROJECT_TYPE] with MD to Files compatibility:
+
+Format requirements:
+- Tree in first code block with ```text fence
+- Each .py file marked with: # [file name]: path/to/file.py
+- Include setup.py or pyproject.toml
+- Add requirements.txt with all dependencies
+- Include docstrings (module, class, function level)
+- Provide README.md with installation steps
+
+Language markers: python, py
+
+===============================================================================
+PROMPT #5: JAVASCRIPT/NODE PROJECT
+===============================================================================
+
+Generate a JavaScript/Node [PROJECT_TYPE] with MD to Files compatibility:
+
+Format requirements:
+- Tree in first code block with ```text fence  
+- Each .js/.ts file marked with: // [file name]: path/to/file.js
+- Include package.json with dependencies
+- Add .gitignore and .env.example
+- Include README.md with npm install and npm start instructions
+- Provide TSconfig.json if using TypeScript
+
+Language markers: javascript, js, typescript, ts
+
+===============================================================================
+PROMPT #6: FULL-STACK WEB APP
+===============================================================================
+
+Generate a full-stack web application with MD to Files compatibility:
+
+Format requirements:
+- Complete tree showing both frontend and backend
+- Backend files marked with backend language comment: # [file name]: backend/path
+- Frontend files marked with frontend language comment: // [file name]: frontend/path
+- Include all config files (both frontend and backend)
+- Separate requirements.txt (backend) and package.json (frontend)
+- Provide comprehensive README with full setup instructions
+
+Directory structure:
+```text
+project/
+├── backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   └── config.py
+├── frontend/
+│   ├── package.json
+│   └── src/
+│       └── App.jsx
+└── README.md
+```
+
+===============================================================================
+PROMPT #7: DOCKER PROJECT
+===============================================================================
+
+Generate a Dockerized [PROJECT_TYPE] with MD to Files compatibility:
+
+Include in response:
+- Dockerfile (marked as: # [file name]: Dockerfile)
+- docker-compose.yml (marked as: # [file name]: docker-compose.yml)
+- .dockerignore file
+- Shell scripts for setup (marked as: # [file name]: scripts/setup.sh)
+- Complete project tree showing all services
+- Detailed README with Docker setup instructions
+
+Tree example:
+```text
+project/
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
+├── app/
+│   └── main.py
+├── scripts/
+│   └── setup.sh
+└── README.md
+```
+
+===============================================================================
+PROMPT #8: REST API
+===============================================================================
+
+Generate a RESTful API with MD to Files compatibility:
+
+Requirements:
+- Complete project tree at start with ```text code fence
+- Full CRUD endpoints
+- Request validation
+- Error handling
+- Authentication (JWT or OAuth)
+- Database integration
+- API documentation
+
+Format:
+- Each file in code block with [file name]: path marker on line 1
+- Language identifier required (python, javascript, etc.)
+- Include all configuration files
+- Add requirements/dependencies file
+- Provide setup and testing instructions
+
+===============================================================================
+PROMPT #9: CLI TOOL
+===============================================================================
+
+Generate a command-line tool with MD to Files compatibility:
+
+Format:
+- Project tree showing all modules and scripts
+- Each Python file: # [file name]: path/to/file.py
+- Include argument parsing and help text
+- Add error handling and validation
+- Setup.py or pyproject.toml for installation
+- Requirements.txt with dependencies
+- README with usage examples
+- Tests if applicable
+
+===============================================================================
+PROMPT #10: LIBRARY/SDK
+===============================================================================
+
+Generate a reusable library/SDK with MD to Files compatibility:
+
+Structure:
+- Clear project tree with src/, tests/, docs/ directories
+- Each file marked with: # [file name]: path
+- Setup.py or package configuration
+- Type hints and comprehensive docstrings
+- Unit tests with examples
+- README with API documentation
+- Contributing guidelines
+- License file
+
+===============================================================================
+PROMPT #11: REFACTORING EXISTING CODE
+===============================================================================
+
+Refactor [EXISTING_PROJECT] to improve [GOALS] with MD to Files format:
+
+Show:
+- Updated project tree
+- Modified files with [file name]: markers
+- What changed (add comments highlighting modifications)
+- Migration guide if applicable
+
+Format as MD to Files Parser v5.1.3+:
+```text
+project/
+[complete tree]
+```
+
+Each file in code block with [file name]: path on first line.
+
+===============================================================================
+URGENT/IMPORTANT FLAGS
+===============================================================================
+
+Add ANY of these to emphasize requirements:
+
+Flag for completeness:
+"CRITICAL: Include ALL files - every source file, config, dependencies, and README"
+
+Flag for quality:
+"IMPORTANT: Production-ready code only - no incomplete implementations or pseudo-code"
+
+Flag for no errors:
+"Must be: Complete working code with error handling and all imports included"
+
+Flag for validation:
+"Verify: Tree shows every file, every code block has marker, every file has code block"
+
+===============================================================================
+INTEGRATION WITH CHATGPT SYSTEM PROMPT
+===============================================================================
+
+If using ChatGPT with custom system prompt, include:
+
+---BEGIN---
+
+You are an expert code generator that produces responses optimized for the MD to Files Parser.
+
+When generating code projects, always:
+
+1. START with complete project tree in code block:
+   ```text
+   project/
+   ├── [all files and folders]
+   ```
+
+2. DELIVER each file in code block with:
+   - Language identifier (python, javascript, etc.)
+   - First line: [file name]: relative/path/to/file.ext
+   - Complete, working code with all imports
+   - Comments and docstrings
+
+3. USE exact syntax:
+   - [file name]: path/to/file.ext (required on first line)
+   - Works with any comment: //, #, --, REM
+   - Paths use forward slashes (cross-platform)
+
+4. INCLUDE all files:
+   - Configuration (.env, .gitignore, config.json)
+   - Dependencies (requirements.txt, package.json)
+   - Documentation (README.md)
+   - Tests if applicable
+
+5. VERIFY quality:
+   - All code is production-ready
+   - No incomplete implementations
+   - Error handling included
+   - Cross-platform compatible
+
+---END---
+
+===============================================================================
+VALIDATION BEFORE SUBMITTING
+===============================================================================
+
+Before asking LLM, verify your request includes:
+
+□ Clear project description
+□ Specific features/requirements
+□ Programming language preferences
+□ Format requirements (paste from above)
+□ Any special constraints
+
+Before processing response, verify:
+
+□ Tree starts with "project/"
+□ Tree uses ├──, │, └── symbols
+□ Tree is in code block with ```text
+□ File markers: [file name]: path format
+□ Markers on first line after fence
+□ Code blocks have language identifier
+□ All tree files have corresponding code
+□ Code is complete (no fragments)
+
+===============================================================================
+QUICK COMMAND REFERENCE
+===============================================================================
+
+Test format (dry-run):
+./MD_to_Files_v5.1.3.sh -d response.md /tmp/test
+
+Create project:
+./MD_to_Files_v5.1.3.sh response.md ./my_project
+
+With backup:
+./MD_to_Files_v5.1.3.sh -vb response.md ./my_project
+
+With metadata:
+./MD_to_Files_v5.1.3.sh -vbP response.md ./my_project
+
+Verbose (debug):
+./MD_to_Files_v5.1.3.sh -v response.md ./my_project
+
+===============================================================================
+COMMON MISTAKES TO AVOID
+===============================================================================
+
+❌ DON'T:
+- Forget the tree structure
+- Put marker after line 1
+- Use absolute paths (/usr/bin/file)
+- Mix path separators (\ and /)
+- Omit language identifiers
+- Include fragmented code
+- Skip configuration files
+- Forget dependencies file
+
+✅ DO:
+- Start with project tree
+- Marker on first line after fence
+- Use relative paths only
+- Use forward slashes
+- Always add language identifier
+- Provide complete, working code
+- Include all config files
+- Add requirements.txt or package.json
+- Include README.md
+
+===============================================================================
+LANGUAGES & IDENTIFIERS
+===============================================================================
+
+python          Python files
+js/javascript   JavaScript files
+ts/typescript   TypeScript files
+bash/sh         Bash/Shell scripts
+json            JSON files
+yaml/yml        YAML configuration
+sql             SQL files
+html            HTML files
+css             CSS files
+php             PHP files
+java            Java files
+cpp/c++         C++ files
+go              Go files
+rust            Rust files
+text            Plain text / Tree structures
+
+===============================================================================
+TREE SYMBOLS REFERENCE
+===============================================================================
+
+├── = Intermediate branch (├ + 2 dashes)
+│   = Vertical line (pipe + 3 spaces for alignment)
+└── = Last branch (└ + 2 dashes)
+/   = Directory indicator (add to directory names)
+
+Example:
+project/
+├── src/
+│   ├── main.py
+│   └── utils.py
+└── tests/
+    └── test_main.py
+
+===============================================================================
+FILE MARKER SYNTAX - ALL VARIATIONS
+===============================================================================
+
+Python/Bash style:
+# [file name]: path/to/file.py
+
+C/Java/JavaScript style:
+// [file name]: src/main.js
+
+C block style:
+/* [file name]: header.h */
+
+SQL/HTML comment style:
+-- [file name]: script.sql
+
+Batch/Windows style:
+REM [file name]: setup.bat
+
+All are equivalent - use style matching file type!
+
+===============================================================================
+EXAMPLE MINIMAL REQUEST
+===============================================================================
+
+Generate a Python FastAPI TODO application.
+
+Features:
+- REST API with CRUD operations
+- SQLAlchemy ORM
+- Pydantic models
+- Authentication endpoints
+
+Format for MD to Files Parser (v5.1.3+):
+- Complete project tree with project/ root
+- Each file marked with [file name]: path on first line
+- Include all configuration and dependencies
+- Provide setup instructions in README
+
+===============================================================================
+TROUBLESHOOTING QUICK FIXES
+===============================================================================
+
+Problem: "No project structures found"
+→ Add tree with project/ root in ```text code block
+
+Problem: Files empty after generation
+→ Move marker to first line (before imports)
+
+Problem: "File name too long"
+→ Make sure marker is just [file name]: path (no description)
+
+Problem: Files not created
+→ Check all markers use exact format [file name]: path
+
+Problem: Wrong content in files
+→ Verify each code block has correct marker and language
+
+Problem: Tree syntax error
+→ Use ├──, │, └── (not |, -, \, etc.)
+
+===============================================================================
+VERSION INFO
+===============================================================================
+
+Compatible with: MD to Files v5.1.3+
+Document version: 1.0
+Last updated: 2025-10-30
+Author: Mikhail Deynekin
+License: MIT
+
+For issues or questions: mid1977@gmail.com
+Website: https://deynekin.com
+
+===============================================================================
+END OF QUICK PROMPTS
+===============================================================================
+
+Save this file! Use it as reference for all your code generation requests.
+
+Copy any prompt from above and paste into your LLM request.
+Add specific details for your project.
+Receive perfectly formatted response.
+Run: ./MD_to_Files_v5.1.3.sh response.md ./output
+Done!
+
+===============================================================================
+
