@@ -1,6 +1,6 @@
 # MD_to_Files.sh
 
-[![Version](https://img.shields.io/badge/version-5.1.7-blue.svg)](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
+[![Version](https://img.shields.io/badge/version-5.1.8-blue.svg)](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Shell](https://img.shields.io/badge/shell-bash%20%E2%89%A54.0-orange.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL-lightgrey.svg)]()
