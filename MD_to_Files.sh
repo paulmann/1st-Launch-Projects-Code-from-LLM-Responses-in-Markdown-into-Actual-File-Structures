@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################################
-# MD to Files: LLM Code Projector v5.1.7
+# MD to Files: LLM Code Projector v5.1.8
 #
 # Author: Mikhail Deynekin (https://deynekin.com)
 # Email: mid1977@gmail.com
@@ -18,7 +18,7 @@ IFS=$'\n\t'
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
-readonly SCRIPT_VERSION="5.1.7"
+readonly SCRIPT_VERSION="5.1.8"
 readonly SCRIPT_AUTHOR="Mikhail Deynekin"
 readonly MIN_BASH_VERSION=4
 # Terminal colors
@@ -126,7 +126,7 @@ log_progress() {
 # ============================================================================
 show_help() {
     cat << 'EOF'
-MD to Files: LLM Code Projector v5.1.7
+MD to Files: LLM Code Projector v5.1.8
 Professional-grade LLM markdown-to-project converter
 USAGE:
   MD_to_Files.sh [OPTIONS] INPUT_FILE [TARGET_DIR]
@@ -489,6 +489,37 @@ extract_structure_from_comments() {
 # ============================================================================
 # TREE STRUCTURE DETECTION
 # ============================================================================
+is_valid_tree_structure() {
+    local tree_content="$1"
+    
+    # Count tree-specific characters
+    local tree_chars=$(printf "%s" "$tree_content" | grep -o '[├│└──]' | wc -l)
+    local total_lines=$(printf "%s" "$tree_content" | wc -l)
+    
+    # If no tree characters at all, it's not a valid tree
+    if [[ $tree_chars -eq 0 ]]; then
+        return 1
+    fi
+    
+    # Check for common code patterns that indicate this is not a tree
+    if printf "%s" "$tree_content" | grep -q -E '(function|class|namespace|public|private|protected|\$|->|;|/\*|\*/)'; then
+        return 1
+    fi
+    
+    # Check for excessive special characters that indicate code
+    local special_chars=$(printf "%s" "$tree_content" | grep -o '[$;{}()=]' | wc -l)
+    if [[ $special_chars -gt $((total_lines / 2)) ]]; then
+        return 1
+    fi
+    
+    # Check for file/directory patterns
+    local file_patterns=$(printf "%s" "$tree_content" | grep -c -E '([a-zA-Z0-9_-]+\.[a-zA-Z0-9]+|[a-zA-Z0-9_-]+/)')
+    if [[ $file_patterns -lt $((total_lines / 3)) ]]; then
+        return 1
+    fi
+    
+    return 0
+}
 find_tree_structures() {
     local input_file="$1"
     local in_tree_block=0
@@ -499,40 +530,64 @@ find_tree_structures() {
     while IFS= read -r line || [[ -n "$line" ]]; do
         ((line_num++))
         line="${line%$'\r'}"
+        
+        # Look for tree structure headers
+        if [[ "$line" =~ [Dd][Ii][Rr][Ee][Cc][Tt][Oo][Rr][Yy][[:space:]]+[Ss][Tt][Rr][Uu][Cc][Tt][Uu][Rr][Ee]: ]] || 
+           [[ "$line" =~ [Pp][Rr][Oo][Jj][Ee][Cc][Tt][[:space:]]+[Ss][Tt][Rr][Uu][Cc][Tt][Uu][Rr][Ee]: ]] ||
+           [[ "$line" =~ ^[[:space:]]*[├│└] ]] ||
+           [[ "$line" =~ ^[[:space:]]*[|] ]]; then
+            
+            if [[ $in_tree_block -eq 0 ]]; then
+                in_tree_block=1
+                current_tree="$line"
+                log_debug "Line $line_num: Starting tree block"
+            else
+                current_tree+=$'\n'"$line"
+            fi
+            continue
+        fi
+        
+        if [[ $in_tree_block -eq 1 ]]; then
+            # Continue collecting tree lines if they contain tree characters
+            if [[ "$line" =~ [├│└──] ]] || [[ "$line" =~ [|] && "$line" =~ [/] ]] || 
+               [[ "$line" =~ ^[[:space:]]*$ ]] || [[ "$line" =~ [a-zA-Z0-9_-]+\.[a-zA-Z0-9]+ ]] ||
+               [[ "$line" =~ [a-zA-Z0-9_-]+/ ]]; then
+                current_tree+=$'\n'"$line"
+            else
+                # End of tree block
+                in_tree_block=0
+                if [[ -n "$current_tree" ]] && is_valid_tree_structure "$current_tree"; then
+                    ((tree_count++))
+                    TREE_STRUCTURES["$tree_count"]="$current_tree"
+                    log_debug "Found valid tree structure #$tree_count"
+                else
+                    log_debug "Skipping invalid tree structure"
+                fi
+                current_tree=""
+            fi
+        fi
+        
+        # Also check code blocks for trees
         if [[ "$line" =~ ^[[:space:]]*\`\`\` ]]; then
             if [[ $in_tree_block -eq 1 ]]; then
-                if [[ -n "$current_tree" ]]; then
+                in_tree_block=0
+                if [[ -n "$current_tree" ]] && is_valid_tree_structure "$current_tree"; then
                     ((tree_count++))
                     TREE_STRUCTURES["$tree_count"]="$current_tree"
                     log_debug "Found tree structure #$tree_count in code block"
                 fi
-                in_tree_block=0
                 current_tree=""
-            else
-                in_tree_block=1
-                current_tree=""
-            fi
-            continue
-        fi
-        if [[ $in_tree_block -eq 1 ]]; then
-            if [[ "$line" =~ [├│└──] ]] || [[ "$line" =~ [|] && "$line" =~ [/] ]]; then
-                if [[ -z "$current_tree" ]]; then
-                    current_tree="$line"
-                else
-                    current_tree+=$'\n'"$line"
-                fi
-            elif [[ -n "$current_tree" ]]; then
-                if ! [[ "$line" =~ ^[[:space:]]*$ ]]; then
-                    current_tree+=$'\n'"$line"
-                fi
             fi
         fi
     done < "$input_file"
-    if [[ $in_tree_block -eq 1 ]] && [[ -n "$current_tree" ]]; then
+    
+    # Handle final tree block
+    if [[ $in_tree_block -eq 1 ]] && [[ -n "$current_tree" ]] && is_valid_tree_structure "$current_tree"; then
         ((tree_count++))
         TREE_STRUCTURES["$tree_count"]="$current_tree"
         log_debug "Saved final tree structure #$tree_count"
     fi
+    
     if [[ $tree_count -eq 0 ]]; then
         log_info "No visual tree structures found, trying comment-based extraction..."
         local comment_tree
@@ -542,6 +597,7 @@ find_tree_structures() {
             log_ok "Generated tree structure from file comments"
         fi
     fi
+    
     if [[ $tree_count -gt 0 ]]; then
         log_ok "Found $tree_count project structure(s)"
         return 0
@@ -565,8 +621,9 @@ select_tree_interactive() {
     printf "\n%b\n" "${CYAN}Found $count structures:${NC}"
     local i
     for ((i=1; i<=count; i++)); do
-        local preview=$(printf "%s" "${TREE_STRUCTURES[$i]}" | head -1)
-        printf " %d) %s\n" "$i" "$preview"
+        local preview=$(printf "%s" "${TREE_STRUCTURES[$i]}" | head -5 | sed 's/^/    /')
+        printf " %d)\n%s\n" "$i" "$preview"
+        printf "\n"
     done
     while true; do
         printf "%b" "${GREEN}Select structure (1-$count) or q to quit: ${NC}"
@@ -595,8 +652,15 @@ normalize_tree_lines() {
     while IFS= read -r line; do
         line="${line%$'\r'}"
         [[ -z "$line" ]] && continue
-        line=$(printf "%s" "$line" | sed -e 's/├/|/g' -e 's/│/|/g' -e 's/└/|/g' -e 's/─/-/g')
-        printf "%s\n" "$line"
+        # Skip lines that are clearly code or regex patterns
+        if [[ "$line" =~ (preg_match|function|class|namespace|\$|->) ]]; then
+            continue
+        fi
+        # Only process lines that look like file/directory structures
+        if [[ "$line" =~ ([├│└──]|[|]) ]] || [[ "$line" =~ ([a-zA-Z0-9_-]+\.[a-zA-Z0-9]+|[a-zA-Z0-9_-]+/) ]]; then
+            line=$(printf "%s" "$line" | sed -e 's/├/|/g' -e 's/│/|/g' -e 's/└/|/g' -e 's/─/-/g')
+            printf "%s\n" "$line"
+        fi
     done <<< "$tree_block"
 }
 # ============================================================================
@@ -868,6 +932,16 @@ parse_and_create_structure() {
         item_name=$(printf "%s" "$item_name" | sed 's/^[[:space:]│├└─]*//;s/^[[:space:]]*//;s/[[:space:]]*$//')
         [[ -z "$item_name" ]] && continue
         [[ "$item_name" == "project/" ]] && continue
+        
+        # Skip lines that are clearly not file/directory names
+        if [[ "$item_name" =~ (preg_match|function|class|foreach|if|return|private|public) ]] ||
+           [[ "$item_name" =~ (\$|->|;|,|\[|\]|\(|\)) ]] ||
+           [[ "$item_name" =~ ^[[:space:]]*\/ ]] ||
+           [[ ${#item_name} -gt 100 ]]; then
+            log_debug "Skipping invalid item: $item_name"
+            continue
+        fi
+        
         if [[ "$item_name" =~ /$ ]]; then
             local dir_name=$(sanitize_path "${item_name%/}")
             local full_dir_path="${current_path%/}/$dir_name"
@@ -950,6 +1024,10 @@ main() {
     local tree_num
     for tree_num in "${selected[@]}"; do
         printf "\n%b\n" "${CYAN}=== Processing Structure #$tree_num ===${NC}"
+        printf "%b\n" "${BLUE}Structure preview:${NC}"
+        printf "%s\n" "${TREE_STRUCTURES[$tree_num]}" | head -10
+        printf "\n"
+        
         if [[ "$UPDATE_MODE" == true ]]; then
             if find_existing_files "$target_dir" "${TREE_STRUCTURES[$tree_num]}"; then
                 log_ok "Structure #$tree_num updated successfully"
