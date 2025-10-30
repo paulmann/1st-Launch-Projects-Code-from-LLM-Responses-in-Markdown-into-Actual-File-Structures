@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################################
-# MD to Files: LLM Code Projector v5.1.8
+# MD to Files: LLM Code Projector v5.1.9
 #
 # Author: Mikhail Deynekin (https://deynekin.com)
 # Email: mid1977@gmail.com
@@ -18,7 +18,7 @@ IFS=$'\n\t'
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
-readonly SCRIPT_VERSION="5.1.8"
+readonly SCRIPT_VERSION="5.1.9"
 readonly SCRIPT_AUTHOR="Mikhail Deynekin"
 readonly MIN_BASH_VERSION=4
 # Terminal colors
@@ -126,7 +126,7 @@ log_progress() {
 # ============================================================================
 show_help() {
     cat << 'EOF'
-MD to Files: LLM Code Projector v5.1.8
+MD to Files: LLM Code Projector v5.1.9
 Professional-grade LLM markdown-to-project converter
 USAGE:
   MD_to_Files.sh [OPTIONS] INPUT_FILE [TARGET_DIR]
@@ -371,6 +371,7 @@ sanitize_path() {
 extract_code_blocks() {
     local input_file="$1"
     local in_code_block=0
+    local in_file_content=0
     local current_file=""
     local current_content=""
     local lang=""
@@ -379,12 +380,15 @@ extract_code_blocks() {
     while IFS= read -r line || [[ -n "$line" ]]; do
         ((line_num++))
         line="${line%$'\r'}"
+        
+        # Check for code block start/end
         if [[ "$line" =~ ^[[:space:]]*\`\`\`([a-zA-Z0-9+]*)$ ]]; then
             if [[ $in_code_block -eq 0 ]]; then
                 in_code_block=1
                 lang="${BASH_REMATCH[1]}"
                 current_content=""
                 current_file=""
+                in_file_content=0
                 log_debug "Line $line_num: Opening code block (language: $lang)"
             else
                 in_code_block=0
@@ -397,39 +401,55 @@ extract_code_blocks() {
                 current_file=""
                 current_content=""
                 lang=""
+                in_file_content=0
             fi
             continue
         fi
+        
         if [[ $in_code_block -eq 1 ]]; then
+            # Look for file name markers
             if [[ -z "$current_file" ]]; then
-                if [[ "$line" =~ //[[:space:]]*\[file\ name\]:[[:space:]]*(.+) ]]; then
+                if [[ "$line" =~ \[file[[:space:]]name\]:[[:space:]]*(.+) ]]; then
                     current_file=$(printf "%s\n" "${BASH_REMATCH[1]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                     current_file="${current_file#/}"
-                    log_debug "Line $line_num: Found C-style file reference: $current_file"
-                    continue
-                fi
-                if [[ "$line" =~ \#[[:space:]]*\[file\ name\]:[[:space:]]*(.+) ]]; then
-                    current_file=$(printf "%s\n" "${BASH_REMATCH[1]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    current_file="${current_file#/}"
-                    log_debug "Line $line_num: Found shell comment file reference: $current_file"
-                    continue
-                fi
-                if [[ "$line" =~ REM[[:space:]]*\[file\ name\]:[[:space:]]*(.+) ]]; then
-                    current_file=$(printf "%s\n" "${BASH_REMATCH[1]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    current_file="${current_file#/}"
-                    log_debug "Line $line_num: Found batch comment file reference: $current_file"
+                    log_debug "Line $line_num: Found file reference: $current_file"
                     continue
                 fi
             fi
-            current_content+="$line"$'\n'
+            
+            # Check for content begin marker
+            if [[ "$line" =~ \[file[[:space:]]content[[:space:]]begin\] ]]; then
+                in_file_content=1
+                log_debug "Line $line_num: Starting file content section"
+                continue
+            fi
+            
+            # Check for content end marker
+            if [[ "$line" =~ \[file[[:space:]]content[[:space:]]end\] ]]; then
+                in_file_content=0
+                log_debug "Line $line_num: Ending file content section"
+                continue
+            fi
+            
+            # Collect content based on mode
+            if [[ $in_file_content -eq 1 ]] || [[ -n "$current_file" ]]; then
+                # Skip empty lines at the beginning of content
+                if [[ -z "$current_content" ]] && [[ -z "$(printf "%s" "$line" | tr -d '[:space:]')" ]]; then
+                    continue
+                fi
+                current_content+="$line"$'\n'
+            fi
         fi
     done < "$input_file"
+    
+    # Handle final block if still open
     if [[ $in_code_block -eq 1 ]] && [[ -n "$current_file" ]] && [[ -n "$current_content" ]]; then
         current_content="${current_content%$'\n'}"
         CODE_BLOCKS["$current_file"]="$current_content"
         ((STATS_BLOCKS_EXTRACTED++))
         log_debug "Saved final code block: $current_file"
     fi
+    
     if [[ ${#CODE_BLOCKS[@]} -gt 0 ]]; then
         log_ok "Extracted ${#CODE_BLOCKS[@]} code block(s)"
         return 0
