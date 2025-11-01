@@ -1,6 +1,7 @@
+```markdown
 # MD_to_Files.sh
 
-[![Version](https://img.shields.io/badge/version-6.0.9-blue.svg)](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
+[![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Shell](https://img.shields.io/badge/shell-bash%20%E2%89%A54.0-orange.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL-lightgrey.svg)]()
@@ -19,6 +20,7 @@ A powerful Bash utility that converts AI assistant responses (ChatGPT, Claude, D
 - [Installation](#-installation)
 - [Usage](#-usage)
 - [Input Format Reference](#-input-format-reference)
+- [Instructions for LLM](#-instructions-for-llm)
 - [Command-Line Options](#-command-line-options)
 - [Examples](#-examples)
 - [Integration](#-integration)
@@ -112,12 +114,16 @@ Create a simple Markdown file `test.md`:
 ````markdown
 # Test Project
 
+## Project Structure
+
 ```
 test-app/
 ├── src/
 │   └── app.js
 └── package.json
 ```
+
+## Implementation
 
 **src/app.js**
 ```javascript
@@ -427,6 +433,236 @@ module.exports = { host: 'localhost' };
 
 ---
 
+## 🤖 Instructions for LLM
+
+When generating responses that will be processed by MD_to_Files.sh, follow these specific formatting guidelines to ensure proper parsing:
+
+### Essential Format Requirements
+
+**1. Always include a clear project structure section:**
+```markdown
+## Project Structure
+
+```
+project-name/
+├── src/
+│   ├── main.js
+│   └── utils.js
+├── config/
+│   └── settings.json
+└── README.md
+```
+```
+
+**2. Use proper file markers before code blocks:**
+```markdown
+**src/main.js**
+```javascript
+// Your code here
+```
+
+**config/settings.json**
+```json
+{
+  "config": "value"
+}
+```
+```
+
+**3. Include the complete file path in markers:**
+- ✅ **Correct:** `**src/components/Header.js**`
+- ❌ **Incorrect:** `**Header.js**`
+
+### LLM Prompt Template
+
+When asking an LLM to generate code, use this template:
+
+```
+Create a complete project structure for [your project description]. 
+Format the response so it can be processed by MD_to_Files.sh:
+
+# Project Name
+
+[Brief project description]
+
+## Project Structure
+
+```
+[Use Unicode box-drawing characters for the tree structure]
+```
+
+## Implementation
+
+[For each file in the structure, include:]
+
+**full/path/to/file.ext**
+```language
+[Complete file content]
+```
+
+Ensure that:
+1. Every file in the structure has corresponding code
+2. File paths in markers match exactly with the tree structure
+3. Use proper language identifiers in code blocks
+4. Include all necessary configuration files
+```
+
+### Complete Example for LLM
+
+````markdown
+# Express API Server
+
+A simple Express.js REST API server with user management.
+
+## Project Structure
+
+```
+express-api/
+├── src/
+│   ├── app.js
+│   ├── routes/
+│   │   └── users.js
+│   ├── controllers/
+│   │   └── userController.js
+│   └── config/
+│       └── database.js
+├── package.json
+└── README.md
+```
+
+## Implementation
+
+**src/app.js**
+```javascript
+const express = require('express');
+const userRoutes = require('./routes/users');
+
+const app = express();
+app.use(express.json());
+app.use('/api/users', userRoutes);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+```
+
+**src/routes/users.js**
+```javascript
+const express = require('express');
+const router = express.Router();
+const userController = require('../controllers/userController');
+
+router.get('/', userController.getAllUsers);
+router.get('/:id', userController.getUserById);
+router.post('/', userController.createUser);
+
+module.exports = router;
+```
+
+**src/controllers/userController.js**
+```javascript
+const users = [];
+
+exports.getAllUsers = (req, res) => {
+    res.json({ users });
+};
+
+exports.getUserById = (req, res) => {
+    const user = users.find(u => u.id === parseInt(req.params.id));
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ user });
+};
+
+exports.createUser = (req, res) => {
+    const { name, email } = req.body;
+    const newUser = {
+        id: users.length + 1,
+        name,
+        email
+    };
+    users.push(newUser);
+    res.status(201).json({ user: newUser });
+};
+```
+
+**src/config/database.js**
+```javascript
+module.exports = {
+    development: {
+        host: 'localhost',
+        port: 5432,
+        database: 'express_api_dev'
+    },
+    production: {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        database: process.env.DB_NAME
+    }
+};
+```
+
+**package.json**
+```json
+{
+  "name": "express-api",
+  "version": "1.0.0",
+  "description": "Express.js REST API server",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}
+```
+
+**README.md**
+```markdown
+# Express API Server
+
+A simple REST API built with Express.js.
+
+## Setup
+
+1. Install dependencies: `npm install`
+2. Start server: `npm run dev`
+3. Access API at: `http://localhost:3000`
+```
+````
+
+### Common LLM Mistakes to Avoid
+
+1. **Missing file markers:** Don't just show code without indicating which file it belongs to
+2. **Inconsistent paths:** Ensure file paths in markers exactly match the tree structure
+3. **Incomplete structure:** Include all directories and files mentioned in the tree
+4. **Missing configuration:** Don't forget package.json, .env, or other config files
+5. **No language identifiers:** Always specify the programming language in code blocks
+
+### Advanced LLM Instructions
+
+For complex projects, you can add:
+
+```markdown
+Please also include:
+- Environment configuration files (.env.example)
+- Build scripts and configuration
+- Test files and setup
+- Documentation files
+- Git ignore files
+```
+
+By following these instructions, LLM responses will be perfectly formatted for automatic processing with MD_to_Files.sh.
+
+---
+
 ## 🎬 Examples
 
 ### Example 1: React Application
@@ -435,6 +671,8 @@ module.exports = { host: 'localhost' };
 
 ````markdown
 # React Application
+
+## Project Structure
 
 ```
 react-app/
@@ -448,6 +686,8 @@ react-app/
 │       └── Footer.js
 └── package.json
 ```
+
+## Implementation
 
 **src/index.js**
 ```javascript
@@ -526,95 +766,20 @@ npm install
 npm start
 ```
 
-### Example 2: Express API
-
-````markdown
-# Express REST API
-
-```
-express-api/
-├── src/
-│   ├── app.js
-│   ├── routes/
-│   │   └── users.js
-│   ├── controllers/
-│   │   └── userController.js
-│   └── config/
-│       └── database.js
-└── package.json
-```
-
-**src/app.js**
-```javascript
-const express = require('express');
-const userRoutes = require('./routes/users');
-
-const app = express();
-app.use(express.json());
-app.use('/api/users', userRoutes);
-
-app.listen(3000, () => {
-    console.log('Server running on port 3000');
-});
-```
-
-**src/routes/users.js**
-```javascript
-const express = require('express');
-const router = express.Router();
-const userController = require('../controllers/userController');
-
-router.get('/', userController.getAll);
-router.get('/:id', userController.getById);
-
-module.exports = router;
-```
-
-**src/controllers/userController.js**
-```javascript
-exports.getAll = (req, res) => {
-    res.json({ users: ['John', 'Jane'] });
-};
-
-exports.getById = (req, res) => {
-    const { id } = req.params;
-    res.json({ user: `User ${id}` });
-};
-```
-
-**package.json**
-```json
-{
-  "name": "express-api",
-  "version": "1.0.0",
-  "dependencies": {
-    "express": "^4.18.0"
-  }
-}
-```
-````
-
-**Execute:**
-
-```bash
-./MD_to_Files.sh express_api.md ./my-api
-cd my-api/express-api
-npm install
-node src/app.js
-```
-
-### Example 3: Python Course
+### Example 2: Python Course
 
 ````markdown
 # Python Course
 
-## Lesson 1
+## Lesson 1 Structure
 
 ```
 lesson-1/
 ├── hello.py
 └── README.md
 ```
+
+## Implementation
 
 **hello.py**
 ```python
@@ -627,13 +792,15 @@ print("Hello, World!")
 Your first Python program.
 ```
 
-## Lesson 2
+## Lesson 2 Structure
 
 ```
 lesson-2/
 ├── variables.py
 └── README.md
 ```
+
+## Implementation
 
 **variables.py**
 ```python
@@ -653,23 +820,6 @@ Working with variables in Python.
 
 ```bash
 ./MD_to_Files.sh -a python_course.md ./course-materials
-```
-
-### Example 4: Updating Existing Project
-
-```bash
-# 1. Create backup
-cp -r ./my-project ./my-project.backup
-
-# 2. Run update with backups
-./MD_to_Files.sh -U -b -v improvements.md ./my-project
-
-# 3. Verify changes
-diff -r ./my-project ./my-project.backup
-
-# 4. Rollback if needed
-rm -rf ./my-project
-mv ./my-project.backup ./my-project
 ```
 
 ---
@@ -726,21 +876,6 @@ jobs:
           git push
 ```
 
-### GitLab CI
-
-```yaml
-generate-structure:
-  script:
-    - chmod +x ./tools/MD_to_Files.sh
-    - ./tools/MD_to_Files.sh -P docs/structure.md ./output
-  artifacts:
-    paths:
-      - output/
-  only:
-    changes:
-      - docs/structure.md
-```
-
 ### VS Code Task
 
 ```json
@@ -763,67 +898,6 @@ generate-structure:
 }
 ```
 
-### Makefile
-
-```makefile
-.PHONY: generate update clean test
-
-MD2FILES := ./tools/MD_to_Files.sh
-INPUT := docs/structure.md
-OUTPUT := ./generated
-
-generate:
-	$(MD2FILES) -P $(INPUT) $(OUTPUT)
-
-update:
-	$(MD2FILES) -U -b $(INPUT) $(OUTPUT)
-
-clean:
-	rm -rf $(OUTPUT)
-
-test:
-	$(MD2FILES) -d $(INPUT) $(OUTPUT)
-```
-
-### AI Assistant Integration
-
-**Optimized Prompt for ChatGPT/Claude:**
-
-```
-Create a project structure for [project description].
-Use the following format for MD_to_Files.sh:
-
-# Project Name
-
-## Project Structure
-```
-project-name/
-├── src/
-│   └── main.js
-└── package.json
-```
-
-## Implementation
-
-**src/main.js**
-```javascript
-// code
-```
-
-**package.json**
-```json
-{
-  "name": "project-name"
-}
-```
-
-Ensure that:
-- Tree uses Unicode box-drawing characters (├─└│)
-- Directories end with /
-- Files are marked with bold: **path/to/file.ext**
-- Code blocks use triple backticks with language identifier
-```
-
 ---
 
 ## 🔧 Troubleshooting
@@ -835,44 +909,17 @@ Ensure that:
 **Cause:** Markdown doesn't contain recognizable directory tree.
 
 **Solution:**
+- Ensure you have a clear "Project Structure" section
+- Use proper Unicode box-drawing characters
+- Include the structure in code blocks or plain text
 
-```bash
-# ✓ Correct
-├── src/
-│   └── file.js
+#### Error: "Code blocks not associated with files"
 
-# ✗ Incorrect
-- src/
-  - file.js
-```
-
-#### Error: "Permission denied"
-
-**Cause:** No write permissions.
+**Cause:** Missing file markers before code blocks.
 
 **Solution:**
-
-```bash
-# Check permissions
-ls -la target_directory
-
-# Adjust permissions
-chmod 755 target_directory
-```
-
-#### Error: "File encoding not supported"
-
-**Cause:** Unsupported file encoding.
-
-**Solution:**
-
-```bash
-# Detect encoding
-file -i problem_file.md
-
-# Convert to UTF-8
-iconv -f WINDOWS-1252 -t UTF-8 problem_file.md > fixed_file.md
-```
+- Add file path markers like `**src/main.js**` before each code block
+- Ensure paths match exactly with the tree structure
 
 ### Diagnostics
 
@@ -929,23 +976,6 @@ A: Yes, use update mode:
 ```
 </details>
 
-<details>
-<summary><b>Q: Are binary files supported?</b></summary>
-
-A: No, only text files. Binary files must be added manually.
-</details>
-
-<details>
-<summary><b>Q: How does it work on Windows?</b></summary>
-
-A: Use WSL (Windows Subsystem for Linux) or Cygwin:
-
-```powershell
-# In WSL
-wsl bash MD_to_Files.sh structure.md ./output
-```
-</details>
-
 ---
 
 ## 📚 Documentation
@@ -964,13 +994,6 @@ wsl bash MD_to_Files.sh structure.md ./output
 - [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) — Community guidelines
 - [CONTRIBUTING](CONTRIBUTING.md) — Contribution guide
 - [LICENSE](LICENSE) — MIT License
-
-### Templates
-
-- [Express API Template](templates/express-api.md)
-- [React App Template](templates/react-app.md)
-- [Python Project Template](templates/python-project.md)
-- [Node.js CLI Template](templates/nodejs-cli.md)
 
 ---
 
@@ -1002,24 +1025,6 @@ git commit -m "Add amazing feature"
 git push origin feature/amazing-feature
 
 # 6. Open Pull Request
-```
-
-### Code Standards
-
-- Use ShellCheck for script validation
-- Comment complex logic
-- Follow existing code style
-- Update documentation for new features
-- Add tests for new functionality
-
-### Testing
-
-```bash
-# Run tests
-./tests/run_tests.sh
-
-# Run ShellCheck
-shellcheck MD_to_Files.sh
 ```
 
 ---
@@ -1071,38 +1076,6 @@ SOFTWARE.
 
 ---
 
-## 🌟 Support the Project
-
-If MD_to_Files.sh has helped you:
-
-- ⭐ Star the repository on GitHub
-- 🐦 Share the project on social media
-- 📝 Write an article or tutorial
-
----
-
-## 🙏 Acknowledgments
-
-Thanks to everyone who contributed to this project:
-
-- [@paulmann](https://github.com/paulmann) — original author
-- All contributors — thank you for your Pull Requests
-- The community — for feedback and suggestions
-
-### Related Projects
-
-- [Clean_BOM_Senior](https://github.com/paulmann/Clean_BOM_Senior) — Remove BOM from PHP files
-
----
-
-## 📈 Statistics
-
-![GitHub stars](https://img.shields.io/github/stars/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures?style=social)
-![GitHub forks](https://img.shields.io/github/forks/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures?style=social)
-
----
-
 <div align="center">
 
 **[⬆ Back to Top](#md_to_filessh)**
@@ -1112,3 +1085,4 @@ Made with ❤️ for the developer community
 **Happy Coding! 🚀**
 
 </div>
+```
