@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################################
-# MD to Files: LLM Code Projector v5.1.9
+# MD to Files: LLM Code Projector v6.0.0
 #
 # Author: Mikhail Deynekin (https://deynekin.com)
 # Email: mid1977@gmail.com
@@ -175,12 +175,10 @@ parse_arguments() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
-                # Return a special token to indicate help was requested
                 printf "%s\n" "--help"
                 return 0
                 ;;
             -V|--version)
-                # Return a special token to indicate version was requested
                 printf "%s\n" "--version"
                 return 0
                 ;;
@@ -371,28 +369,31 @@ sanitize_path() {
 extract_code_blocks() {
     local input_file="$1"
     local in_code_block=0
-    local in_file_content=0
     local current_file=""
     local current_content=""
     local lang=""
     local line_num=0
+    local skip_next_line=false
+    
     log_progress "Extracting code blocks from markdown..."
+    
     while IFS= read -r line || [[ -n "$line" ]]; do
         ((line_num++))
         line="${line%$'\r'}"
         
         # Check for code block start/end
-        if [[ "$line" =~ ^[[:space:]]*\`\`\`([a-zA-Z0-9+]*)$ ]]; then
+        if [[ "$line" =~ ^[[:space:]]*\`\`\`([a-zA-Z0-9+]*) ]]; then
             if [[ $in_code_block -eq 0 ]]; then
                 in_code_block=1
                 lang="${BASH_REMATCH[1]}"
                 current_content=""
                 current_file=""
-                in_file_content=0
+                skip_next_line=false
                 log_debug "Line $line_num: Opening code block (language: $lang)"
             else
                 in_code_block=0
                 if [[ -n "$current_file" ]] && [[ -n "$current_content" ]]; then
+                    # Remove the file marker line from content
                     current_content="${current_content%$'\n'}"
                     CODE_BLOCKS["$current_file"]="$current_content"
                     ((STATS_BLOCKS_EXTRACTED++))
@@ -401,40 +402,25 @@ extract_code_blocks() {
                 current_file=""
                 current_content=""
                 lang=""
-                in_file_content=0
+                skip_next_line=false
             fi
             continue
         fi
         
         if [[ $in_code_block -eq 1 ]]; then
-            # Look for file name markers
-            if [[ -z "$current_file" ]]; then
-                if [[ "$line" =~ \[file[[:space:]]name\]:[[:space:]]*(.+) ]]; then
-                    current_file=$(printf "%s\n" "${BASH_REMATCH[1]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    current_file="${current_file#/}"
-                    log_debug "Line $line_num: Found file reference: $current_file"
-                    continue
-                fi
-            fi
-            
-            # Check for content begin marker
-            if [[ "$line" =~ \[file[[:space:]]content[[:space:]]begin\] ]]; then
-                in_file_content=1
-                log_debug "Line $line_num: Starting file content section"
+            # Look for file name markers in ANY format at the beginning of code block
+            if [[ -z "$current_file" ]] && [[ "$line" =~ ^[[:space:]]*(\/\/|#|--|REM)[[:space:]]*\[file[[:space:]]name\]:[[:space:]]*(.+) ]]; then
+                current_file=$(printf "%s\n" "${BASH_REMATCH[2]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                current_file="${current_file#/}"
+                log_debug "Line $line_num: Found file reference: $current_file"
+                skip_next_line=true  # Skip this line (the file marker) in content
                 continue
             fi
             
-            # Check for content end marker
-            if [[ "$line" =~ \[file[[:space:]]content[[:space:]]end\] ]]; then
-                in_file_content=0
-                log_debug "Line $line_num: Ending file content section"
-                continue
-            fi
-            
-            # Collect content based on mode
-            if [[ $in_file_content -eq 1 ]] || [[ -n "$current_file" ]]; then
-                # Skip empty lines at the beginning of content
-                if [[ -z "$current_content" ]] && [[ -z "$(printf "%s" "$line" | tr -d '[:space:]')" ]]; then
+            # If we have a file reference, collect content (skip the marker line)
+            if [[ -n "$current_file" ]]; then
+                if [[ "$skip_next_line" == true ]]; then
+                    skip_next_line=false
                     continue
                 fi
                 current_content+="$line"$'\n'
@@ -459,250 +445,64 @@ extract_code_blocks() {
     fi
 }
 # ============================================================================
-# STRUCTURE EXTRACTION FROM COMMENTS
+# CREATE STRUCTURE FROM CODE BLOCKS
 # ============================================================================
-extract_structure_from_comments() {
-    local input_file="$1"
-    local -a files=()
-    local line_count=0
-    log_progress "Extracting file structure from embedded comments..."
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%$'\r'}"
-        if [[ "$line" =~ \[file[[:space:]]name\]:[[:space:]]*([^[:space:]]+) ]]; then
-            local file_path="${BASH_REMATCH[1]}"
-            if [[ "$file_path" =~ ^(\[|/var|/home|/usr|⏳|🟡|🟢|🔵|🔴) ]] || \
-               [[ "$file_path" =~ "[0-9;]+m" ]]; then
-                continue
-            fi
-            if ! [[ "$file_path" =~ \.[a-zA-Z0-9]{1,10}$ ]]; then
-                continue
-            fi
-            local found=0
-            local existing
-            if [[ ${#files[@]} -gt 0 ]]; then
-                for existing in "${files[@]}"; do
-                    if [[ "$existing" == "$file_path" ]]; then
-                        found=1
-                        break
-                    fi
-                done
-            fi
-            if [[ $found -eq 0 ]]; then
-                files+=("$file_path")
-                log_debug "Registered file path: $file_path"
+create_structure_from_code_blocks() {
+    local target_dir="$1"
+    local created_dirs=0
+    local created_files=0
+    
+    log_progress "Creating project structure from code blocks..."
+    
+    # First, create all directories
+    for file_path in "${!CODE_BLOCKS[@]}"; do
+        local dir_path
+        dir_path=$(dirname "$file_path")
+        if [[ "$dir_path" != "." ]] && [[ "$dir_path" != "/" ]]; then
+            local full_dir_path="${target_dir%/}/${dir_path}"
+            if create_directory "$full_dir_path"; then
+                ((created_dirs++))
             fi
         fi
-    done < "$input_file"
-    if [[ ${#files[@]} -eq 0 ]]; then
-        log_warn "No valid file paths found in comments"
-        return 1
-    fi
-    local tree_str="project/"
-    if [[ ${#files[@]} -gt 0 ]]; then
-        for file_path in "${files[@]}"; do
-            tree_str+=$'\n'"├── ${file_path}"
-        done
-    fi
-    printf "%s\n" "$tree_str"
+    done
+    
+    # Then, create all files with content
+    for file_path in "${!CODE_BLOCKS[@]}"; do
+        local full_file_path="${target_dir%/}/${file_path}"
+        local file_content="${CODE_BLOCKS[$file_path]}"
+        
+        if create_file "$full_file_path" "$file_content"; then
+            ((created_files++))
+        fi
+    done
+    
+    log_ok "Structure from code blocks completed:"
+    log_info " Directories: $created_dirs | Files: $created_files"
     return 0
 }
 # ============================================================================
-# TREE STRUCTURE DETECTION
+# TREE STRUCTURE DETECTION (ОСТАВЛЯЕМ ДЛЯ СОВМЕСТИМОСТИ, НО НЕ ИСПОЛЬЗУЕМ)
 # ============================================================================
-is_valid_tree_structure() {
-    local tree_content="$1"
-    
-    # Count tree-specific characters
-    local tree_chars=$(printf "%s" "$tree_content" | grep -o '[├│└──]' | wc -l)
-    local total_lines=$(printf "%s" "$tree_content" | wc -l)
-    
-    # If no tree characters at all, it's not a valid tree
-    if [[ $tree_chars -eq 0 ]]; then
-        return 1
-    fi
-    
-    # Check for common code patterns that indicate this is not a tree
-    if printf "%s" "$tree_content" | grep -q -E '(function|class|namespace|public|private|protected|\$|->|;|/\*|\*/)'; then
-        return 1
-    fi
-    
-    # Check for excessive special characters that indicate code
-    local special_chars=$(printf "%s" "$tree_content" | grep -o '[$;{}()=]' | wc -l)
-    if [[ $special_chars -gt $((total_lines / 2)) ]]; then
-        return 1
-    fi
-    
-    # Check for file/directory patterns
-    local file_patterns=$(printf "%s" "$tree_content" | grep -c -E '([a-zA-Z0-9_-]+\.[a-zA-Z0-9]+|[a-zA-Z0-9_-]+/)')
-    if [[ $file_patterns -lt $((total_lines / 3)) ]]; then
-        return 1
-    fi
-    
-    return 0
-}
 find_tree_structures() {
     local input_file="$1"
-    local in_tree_block=0
-    local current_tree=""
-    local tree_count=0
-    local line_num=0
-    log_progress "Scanning for project structures in markdown..."
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        ((line_num++))
-        line="${line%$'\r'}"
-        
-        # Look for tree structure headers
-        if [[ "$line" =~ [Dd][Ii][Rr][Ee][Cc][Tt][Oo][Rr][Yy][[:space:]]+[Ss][Tt][Rr][Uu][Cc][Tt][Uu][Rr][Ee]: ]] || 
-           [[ "$line" =~ [Pp][Rr][Oo][Jj][Ee][Cc][Tt][[:space:]]+[Ss][Tt][Rr][Uu][Cc][Tt][Uu][Rr][Ee]: ]] ||
-           [[ "$line" =~ ^[[:space:]]*[├│└] ]] ||
-           [[ "$line" =~ ^[[:space:]]*[|] ]]; then
-            
-            if [[ $in_tree_block -eq 0 ]]; then
-                in_tree_block=1
-                current_tree="$line"
-                log_debug "Line $line_num: Starting tree block"
-            else
-                current_tree+=$'\n'"$line"
-            fi
-            continue
-        fi
-        
-        if [[ $in_tree_block -eq 1 ]]; then
-            # Continue collecting tree lines if they contain tree characters
-            if [[ "$line" =~ [├│└──] ]] || [[ "$line" =~ [|] && "$line" =~ [/] ]] || 
-               [[ "$line" =~ ^[[:space:]]*$ ]] || [[ "$line" =~ [a-zA-Z0-9_-]+\.[a-zA-Z0-9]+ ]] ||
-               [[ "$line" =~ [a-zA-Z0-9_-]+/ ]]; then
-                current_tree+=$'\n'"$line"
-            else
-                # End of tree block
-                in_tree_block=0
-                if [[ -n "$current_tree" ]] && is_valid_tree_structure "$current_tree"; then
-                    ((tree_count++))
-                    TREE_STRUCTURES["$tree_count"]="$current_tree"
-                    log_debug "Found valid tree structure #$tree_count"
-                else
-                    log_debug "Skipping invalid tree structure"
-                fi
-                current_tree=""
-            fi
-        fi
-        
-        # Also check code blocks for trees
-        if [[ "$line" =~ ^[[:space:]]*\`\`\` ]]; then
-            if [[ $in_tree_block -eq 1 ]]; then
-                in_tree_block=0
-                if [[ -n "$current_tree" ]] && is_valid_tree_structure "$current_tree"; then
-                    ((tree_count++))
-                    TREE_STRUCTURES["$tree_count"]="$current_tree"
-                    log_debug "Found tree structure #$tree_count in code block"
-                fi
-                current_tree=""
-            fi
-        fi
-    done < "$input_file"
+    # Игнорируем дерево структуры, используем только code blocks
+    log_info "Ignoring tree structures, using code blocks only"
     
-    # Handle final tree block
-    if [[ $in_tree_block -eq 1 ]] && [[ -n "$current_tree" ]] && is_valid_tree_structure "$current_tree"; then
-        ((tree_count++))
-        TREE_STRUCTURES["$tree_count"]="$current_tree"
-        log_debug "Saved final tree structure #$tree_count"
-    fi
+    # Создаем фиктивную структуру для совместимости
+    TREE_STRUCTURES[1]="project/"
+    for file_path in "${!CODE_BLOCKS[@]}"; do
+        TREE_STRUCTURES[1]+=$'\n'"├── $file_path"
+    done
     
-    if [[ $tree_count -eq 0 ]]; then
-        log_info "No visual tree structures found, trying comment-based extraction..."
-        local comment_tree
-        if comment_tree=$(extract_structure_from_comments "$input_file"); then
-            ((tree_count++))
-            TREE_STRUCTURES[$tree_count]="$comment_tree"
-            log_ok "Generated tree structure from file comments"
-        fi
-    fi
-    
-    if [[ $tree_count -gt 0 ]]; then
-        log_ok "Found $tree_count project structure(s)"
-        return 0
-    else
-        log_err "No project structures found in markdown"
-        return 1
-    fi
+    log_ok "Using code blocks structure with ${#CODE_BLOCKS[@]} files"
+    return 0
 }
 # ============================================================================
 # INTERACTIVE SELECTION
 # ============================================================================
 select_tree_interactive() {
-    local count=${#TREE_STRUCTURES[@]}
-    if [[ $count -eq 0 ]]; then
-        return 1
-    fi
-    if [[ $count -eq 1 ]]; then
-        printf "1\n"
-        return 0
-    fi
-    printf "\n%b\n" "${CYAN}Found $count structures:${NC}"
-    local i
-    for ((i=1; i<=count; i++)); do
-        local preview=$(printf "%s" "${TREE_STRUCTURES[$i]}" | head -5 | sed 's/^/    /')
-        printf " %d)\n%s\n" "$i" "$preview"
-        printf "\n"
-    done
-    while true; do
-        printf "%b" "${GREEN}Select structure (1-$count) or q to quit: ${NC}"
-        read -r choice
-        case "$choice" in
-            [qQ])
-                log_info "Operation cancelled by user"
-                exit 0
-                ;;
-            *)
-                if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le "$count" ]]; then
-                    printf "%s\n" "$choice"
-                    return 0
-                else
-                    printf "%b\n" "${RED}Invalid choice${NC}"
-                fi
-                ;;
-        esac
-    done
-}
-# ============================================================================
-# TREE LINE NORMALIZATION
-# ============================================================================
-normalize_tree_lines() {
-    local tree_block="$1"
-    while IFS= read -r line; do
-        line="${line%$'\r'}"
-        [[ -z "$line" ]] && continue
-        # Skip lines that are clearly code or regex patterns
-        if [[ "$line" =~ (preg_match|function|class|namespace|\$|->) ]]; then
-            continue
-        fi
-        # Only process lines that look like file/directory structures
-        if [[ "$line" =~ ([├│└──]|[|]) ]] || [[ "$line" =~ ([a-zA-Z0-9_-]+\.[a-zA-Z0-9]+|[a-zA-Z0-9_-]+/) ]]; then
-            line=$(printf "%s" "$line" | sed -e 's/├/|/g' -e 's/│/|/g' -e 's/└/|/g' -e 's/─/-/g')
-            printf "%s\n" "$line"
-        fi
-    done <<< "$tree_block"
-}
-# ============================================================================
-# FILE CONTENT RETRIEVAL
-# ============================================================================
-get_file_content() {
-    local file_name="$1"
-    if [[ -v CODE_BLOCKS[$file_name] ]]; then
-        printf "%s" "${CODE_BLOCKS[$file_name]}"
-        return 0
-    fi
-    local base_name
-    base_name=$(basename "$file_name")
-    local key
-    for key in "${!CODE_BLOCKS[@]}"; do
-        if [[ "$(basename "$key")" == "$base_name" ]]; then
-            log_debug "Found code for '$file_name' via basename match: $key"
-            printf "%s" "${CODE_BLOCKS[$key]}"
-            return 0
-        fi
-    done
-    return 1
+    printf "1\n"
+    return 0
 }
 # ============================================================================
 # PROJECT METADATA
@@ -874,120 +674,26 @@ update_file() {
 }
 find_existing_files() {
     local target_dir="$1"
-    local tree_block="$2"
     local updated=0
     local skipped=0
+    
     log_progress "Scanning for existing files in: $target_dir"
-    while IFS= read -r line; do
-        [[ -z "$line" ]] && continue
-        local item_name
-        item_name=$(printf "%s" "$line" | sed 's/^[|\\ \-]*//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-        [[ -z "$item_name" ]] && continue
-        if [[ "$item_name" =~ /$ ]]; then
-            continue
-        fi
-        local file_name
-        file_name=$(sanitize_path "$item_name")
-        local full_path="${target_dir%/}/${file_name}"
-        if [[ ! -f "$full_path" ]]; then
-            local found_file
-            found_file=$(find "$target_dir" -name "$(basename "$file_name")" -type f 2>/dev/null | head -1)
-            if [[ -n "$found_file" ]]; then
-                full_path="$found_file"
-            fi
-        fi
-        if [[ -f "$full_path" ]]; then
-            local file_content
-            file_content=$(get_file_content "$(basename "$file_name")" 2>/dev/null || printf "")
-            if [[ -n "$file_content" ]]; then
-                if update_file "$full_path" "$file_content"; then
-                    ((updated++))
-                else
-                    ((skipped++))
-                fi
+    
+    for file_path in "${!CODE_BLOCKS[@]}"; do
+        local full_file_path="${target_dir%/}/${file_path}"
+        local file_content="${CODE_BLOCKS[$file_path]}"
+        
+        if [[ -f "$full_file_path" ]]; then
+            if update_file "$full_file_path" "$file_content"; then
+                ((updated++))
             else
-                log_debug "No code content found for: $(basename "$file_name")"
                 ((skipped++))
             fi
         fi
-    done < <(normalize_tree_lines "$tree_block")
+    done
+    
     log_ok "Update scan completed: $updated updated, $skipped skipped"
     return $([[ $updated -gt 0 ]] && echo 0 || echo 1)
-}
-# ============================================================================
-# TREE PARSING & STRUCTURE CREATION
-# ============================================================================
-parse_and_create_structure() {
-    local tree_block="$1"
-    local target_dir="$2"
-    local tree_id="$3"
-    local -a dir_stack=()
-    local current_path="$target_dir"
-    local line_count=0
-    local created_dirs=0
-    local created_files=0
-    local skipped_items=0
-    log_progress "Creating structure #$tree_id in: $target_dir"
-    while IFS= read -r line; do
-        ((line_count++))
-        [[ -z "$line" ]] && continue
-        log_debug "Tree line $line_count: $line"
-        local indent_count=0
-        local temp_line="$line"
-        while [[ "$temp_line" =~ ^\ [\ │├└─]* ]]; do
-            temp_line="${temp_line:1}"
-            ((indent_count++))
-        done
-        local level=$((indent_count / 2))
-        [[ $level -lt 0 ]] && level=0
-        while [[ ${#dir_stack[@]} -gt $level ]]; do
-            unset "dir_stack[${#dir_stack[@]}-1]"
-        done
-        current_path="$target_dir"
-        local i
-        for ((i=0; i<${#dir_stack[@]}; i++)); do
-            current_path="${current_path%/}/${dir_stack[$i]}"
-        done
-        local item_name="$line"
-        item_name=$(printf "%s" "$item_name" | sed 's/^[[:space:]│├└─]*//;s/^[[:space:]]*//;s/[[:space:]]*$//')
-        [[ -z "$item_name" ]] && continue
-        [[ "$item_name" == "project/" ]] && continue
-        
-        # Skip lines that are clearly not file/directory names
-        if [[ "$item_name" =~ (preg_match|function|class|foreach|if|return|private|public) ]] ||
-           [[ "$item_name" =~ (\$|->|;|,|\[|\]|\(|\)) ]] ||
-           [[ "$item_name" =~ ^[[:space:]]*\/ ]] ||
-           [[ ${#item_name} -gt 100 ]]; then
-            log_debug "Skipping invalid item: $item_name"
-            continue
-        fi
-        
-        if [[ "$item_name" =~ /$ ]]; then
-            local dir_name=$(sanitize_path "${item_name%/}")
-            local full_dir_path="${current_path%/}/$dir_name"
-            if create_directory "$full_dir_path"; then
-                dir_stack+=("$dir_name")
-                ((created_dirs++))
-            else
-                ((skipped_items++))
-            fi
-        else
-            local file_name=$(sanitize_path "$item_name")
-            local full_file_path="${current_path%/}/$file_name"
-            local file_content=""
-            if [[ "$EXTRACT_CODE" == true ]]; then
-                file_content=$(get_file_content "$file_name" 2>/dev/null || printf "")
-            fi
-            if create_file "$full_file_path" "$file_content"; then
-                ((created_files++))
-            else
-                ((skipped_items++))
-            fi
-        fi
-    done <<< "$tree_block"
-    log_ok "Structure #$tree_id completed:"
-    log_info " Lines: $line_count | Dirs: $created_dirs | Files: $created_files"
-    return $([[ $skipped_items -eq 0 ]] && echo 0 || echo 1)
 }
 # ============================================================================
 # MAIN FUNCTION
@@ -1022,46 +728,32 @@ main() {
         extract_code_blocks "$working_file" || log_warn "No code blocks extracted"
     fi
 
-    if ! find_tree_structures "$working_file"; then
-        log_err "No project structures found in markdown"
+    # Всегда используем структуру из code blocks, игнорируем дерево
+    if [[ ${#CODE_BLOCKS[@]} -eq 0 ]]; then
+        log_err "No code blocks found - cannot create project structure"
         exit 1
     fi
 
-    local -a selected=()
-    if [[ "$INTERACTIVE_MODE" == true ]]; then
-        local choice
-        choice=$(select_tree_interactive) || exit 1
-        selected=("$choice")
-    elif [[ "$FIND_ALL_STRUCTURES" == true ]]; then
-        local i
-        for ((i=1; i<=${#TREE_STRUCTURES[@]}; i++)); do
-            selected+=("$i")
-        done
-    else
-        selected=(1)
-    fi
-
-    local tree_num
-    for tree_num in "${selected[@]}"; do
-        printf "\n%b\n" "${CYAN}=== Processing Structure #$tree_num ===${NC}"
-        printf "%b\n" "${BLUE}Structure preview:${NC}"
-        printf "%s\n" "${TREE_STRUCTURES[$tree_num]}" | head -10
-        printf "\n"
-        
-        if [[ "$UPDATE_MODE" == true ]]; then
-            if find_existing_files "$target_dir" "${TREE_STRUCTURES[$tree_num]}"; then
-                log_ok "Structure #$tree_num updated successfully"
-            else
-                log_warn "Structure #$tree_num completed with warnings"
-            fi
-        else
-            if parse_and_create_structure "${TREE_STRUCTURES[$tree_num]}" "$target_dir" "$tree_num"; then
-                log_ok "Structure #$tree_num completed successfully"
-            else
-                log_warn "Structure #$tree_num completed with warnings"
-            fi
-        fi
+    printf "\n%b\n" "${CYAN}=== Creating Project Structure from Code Blocks ===${NC}"
+    printf "%b\n" "${BLUE}Files to create:${NC}"
+    for file_path in "${!CODE_BLOCKS[@]}"; do
+        printf "  %s\n" "$file_path"
     done
+    printf "\n"
+
+    if [[ "$UPDATE_MODE" == true ]]; then
+        if find_existing_files "$target_dir"; then
+            log_ok "Update completed successfully"
+        else
+            log_warn "Update completed with warnings"
+        fi
+    else
+        if create_structure_from_code_blocks "$target_dir"; then
+            log_ok "Project structure created successfully"
+        else
+            log_warn "Project structure completed with warnings"
+        fi
+    fi
 
     if [[ "$PROJECT_MODE" == "project" ]] && [[ "$DRY_RUN" != true ]]; then
         create_project_metadata "$target_dir" "$input_file"
