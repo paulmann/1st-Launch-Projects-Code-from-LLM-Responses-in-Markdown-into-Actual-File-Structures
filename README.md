@@ -1,4 +1,3 @@
-```markdown
 # MD_to_Files.sh
 
 [![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
