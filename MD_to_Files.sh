@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ################################################################################
-# MD to Files: LLM Code Projector v6.0.0
+# MD to Files: LLM Code Projector v6.0.1
 #
 # Author: Mikhail Deynekin (https://deynekin.com)
 # Email: mid1977@gmail.com
@@ -18,7 +18,7 @@ IFS=$'\n\t'
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
-readonly SCRIPT_VERSION="5.1.9"
+readonly SCRIPT_VERSION="6.0.1"
 readonly SCRIPT_AUTHOR="Mikhail Deynekin"
 readonly MIN_BASH_VERSION=4
 # Terminal colors
@@ -374,12 +374,20 @@ extract_code_blocks() {
     local lang=""
     local line_num=0
     local skip_next_line=false
+    local deepseek_format=false
+    local last_header=""
     
     log_progress "Extracting code blocks from markdown..."
     
     while IFS= read -r line || [[ -n "$line" ]]; do
         ((line_num++))
         line="${line%$'\r'}"
+        
+        # Save headers for context
+        if [[ "$line" =~ ^#[#]?[[:space:]]+(.+) ]]; then
+            last_header="${BASH_REMATCH[1]}"
+            log_debug "Line $line_num: Found header: $last_header"
+        fi
         
         # Check for code block start/end
         if [[ "$line" =~ ^[[:space:]]*\`\`\`([a-zA-Z0-9+]*) ]]; then
@@ -389,32 +397,80 @@ extract_code_blocks() {
                 current_content=""
                 current_file=""
                 skip_next_line=false
+                deepseek_format=false
                 log_debug "Line $line_num: Opening code block (language: $lang)"
             else
                 in_code_block=0
                 if [[ -n "$current_file" ]] && [[ -n "$current_content" ]]; then
                     # Remove the file marker line from content
+                    if [[ "$deepseek_format" == true ]]; then
+                        current_content="${current_content#*$'\n'}"
+                    fi
                     current_content="${current_content%$'\n'}"
                     CODE_BLOCKS["$current_file"]="$current_content"
                     ((STATS_BLOCKS_EXTRACTED++))
                     log_debug "Line $line_num: Saved code block '$current_file' (${#current_content} bytes)"
+                elif [[ -n "$current_content" ]] && [[ -n "$last_header" ]]; then
+                    # Try to extract filename from header as fallback
+                    local extracted_file=""
+                    if [[ "$last_header" =~ ([a-zA-Z0-9_~./-]+\.[a-zA-Z0-9]+) ]]; then
+                        extracted_file="${BASH_REMATCH[1]}"
+                    elif [[ "$last_header" =~ ([a-zA-Z0-9_~./-]+\/[a-zA-Z0-9_~./-]+\.[a-zA-Z0-9]+) ]]; then
+                        extracted_file="${BASH_REMATCH[1]}"
+                    fi
+                    
+                    if [[ -n "$extracted_file" ]]; then
+                        current_content="${current_content%$'\n'}"
+                        CODE_BLOCKS["$extracted_file"]="$current_content"
+                        ((STATS_BLOCKS_EXTRACTED++))
+                        log_debug "Line $line_num: Saved code block from header '$extracted_file'"
+                    fi
                 fi
                 current_file=""
                 current_content=""
                 lang=""
                 skip_next_line=false
+                deepseek_format=false
             fi
             continue
         fi
         
         if [[ $in_code_block -eq 1 ]]; then
             # Look for file name markers in ANY format at the beginning of code block
+            
+            # Old format: // [file name]: path/to/file
             if [[ -z "$current_file" ]] && [[ "$line" =~ ^[[:space:]]*(\/\/|#|--|REM)[[:space:]]*\[file[[:space:]]name\]:[[:space:]]*(.+) ]]; then
                 current_file=$(printf "%s\n" "${BASH_REMATCH[2]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                 current_file="${current_file#/}"
-                log_debug "Line $line_num: Found file reference: $current_file"
-                skip_next_line=true  # Skip this line (the file marker) in content
+                log_debug "Line $line_num: Found file reference (old format): $current_file"
+                skip_next_line=true
                 continue
+            fi
+            
+            # DeepSeek format 1: path/to/file (as first line after code block start)
+            if [[ -z "$current_file" ]] && [[ -z "$current_content" ]]; then
+                # Try to detect file path in first line
+                local potential_file=$(printf "%s\n" "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                
+                # Check if it looks like a file path (has extension or is in common directories)
+                if [[ "$potential_file" =~ ^[a-zA-Z0-9_~./-]+\.[a-zA-Z0-9]+$ ]] ||
+                   [[ "$potential_file" =~ ^(src|config|lang|templates|assets|api)/ ]] ||
+                   [[ "$potential_file" =~ ^/[a-zA-Z0-9_~./-]+ ]] ||
+                   [[ "$potential_file" =~ \.(php|js|css|html|md|json|sql|txt|sh|py|java|c|cpp|xml|yaml|yml)$ ]]; then
+                    
+                    # Skip common false positives
+                    if [[ ! "$potential_file" =~ ^(Структура проекта:|Основные исправления:|[0-9]+\.[0-9]+|[#]+) ]] &&
+                       [[ ! "$potential_file" =~ ^(├|└|│) ]] &&
+                       [[ ${#potential_file} -lt 100 ]]; then
+                        
+                        current_file="$potential_file"
+                        current_file="${current_file#/}"
+                        deepseek_format=true
+                        log_debug "Line $line_num: Found file reference (DeepSeek format): $current_file"
+                        skip_next_line=true
+                        continue
+                    fi
+                fi
             fi
             
             # If we have a file reference, collect content (skip the marker line)
@@ -424,23 +480,51 @@ extract_code_blocks() {
                     continue
                 fi
                 current_content+="$line"$'\n'
+            else
+                # If no file reference found yet, still collect content (might be determined from header later)
+                current_content+="$line"$'\n'
             fi
         fi
     done < "$input_file"
     
     # Handle final block if still open
-    if [[ $in_code_block -eq 1 ]] && [[ -n "$current_file" ]] && [[ -n "$current_content" ]]; then
-        current_content="${current_content%$'\n'}"
-        CODE_BLOCKS["$current_file"]="$current_content"
-        ((STATS_BLOCKS_EXTRACTED++))
-        log_debug "Saved final code block: $current_file"
+    if [[ $in_code_block -eq 1 ]] && [[ -n "$current_content" ]]; then
+        if [[ -n "$current_file" ]]; then
+            if [[ "$deepseek_format" == true ]]; then
+                current_content="${current_content#*$'\n'}"
+            fi
+            current_content="${current_content%$'\n'}"
+            CODE_BLOCKS["$current_file"]="$current_content"
+            ((STATS_BLOCKS_EXTRACTED++))
+            log_debug "Saved final code block: $current_file"
+        elif [[ -n "$last_header" ]]; then
+            # Try to extract filename from header as fallback for the last block
+            local extracted_file=""
+            if [[ "$last_header" =~ ([a-zA-Z0-9_~./-]+\.[a-zA-Z0-9]+) ]]; then
+                extracted_file="${BASH_REMATCH[1]}"
+            elif [[ "$last_header" =~ ([a-zA-Z0-9_~./-]+\/[a-zA-Z0-9_~./-]+\.[a-zA-Z0-9]+) ]]; then
+                extracted_file="${BASH_REMATCH[1]}"
+            fi
+            
+            if [[ -n "$extracted_file" ]]; then
+                current_content="${current_content%$'\n'}"
+                CODE_BLOCKS["$extracted_file"]="$current_content"
+                ((STATS_BLOCKS_EXTRACTED++))
+                log_debug "Saved final code block from header '$extracted_file'"
+            fi
+        fi
     fi
     
     if [[ ${#CODE_BLOCKS[@]} -gt 0 ]]; then
         log_ok "Extracted ${#CODE_BLOCKS[@]} code block(s)"
+        # Debug: show extracted files
+        log_debug "Extracted files:"
+        for file in "${!CODE_BLOCKS[@]}"; do
+            log_debug "  - $file"
+        done
         return 0
     else
-        log_warn "No code blocks with [file name] markers found"
+        log_warn "No code blocks with file markers found"
         return 1
     fi
 }
