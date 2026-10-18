@@ -2,7 +2,7 @@
 
 **Версия:** 1.0  
 **Дата:** 2025-10-30  
-**Совместимость:** MD to Files v5.1.3+  
+**Совместимость:** MD to Files v6.0.1+  
 **Автор:** Mikhail Deynekin  
 
 ---
@@ -12,7 +12,7 @@
 **Что это:** Стандартный формат для ответов LLM, который позволяет автоматически создавать проекты  
 **Зачем:** Чтобы за секунды создать готовый проект вместо ручного копирования кода  
 **Как:** Добавить в запрос специальный промт  
-**Результат:** `./MD_to_Files_v5.1.3.sh response.md ./output` → готовый проект!
+**Результат:** `./MD_to_Files.sh response.md ./output` → готовый проект!
 
 ---
 
@@ -32,6 +32,9 @@ project/
 - Используются символы `├──`, `│`, `└──`
 - Папки заканчиваются на `/`
 - Завёрнуто в ``` ```text ```
+
+> **v6.0.1 и новее:** дерево нужно читателю, а папки создаются из путей в маркерах
+> файлов. Пустая папка из дерева не создаётся, и ответ без маркеров не даст файлов.
 
 ### 2. Маркеры Файлов (первая строка в коде)
 
@@ -95,7 +98,7 @@ def hello():
 **Добавьте в конец ЛЮБОГО запроса на создание кода:**
 
 ```
-Отформатируйте ответ для MD to Files Parser (v5.1.3+):
+Отформатируйте ответ для MD to Files Parser (v6.0.1+):
 - Полное дерево проекта в начале с корнем project/
 - Каждый файл помечен: [file name]: путь на первой строке
 - Идентификаторы языков (python, js и т.д.)
@@ -109,16 +112,16 @@ def hello():
 
 ```bash
 # Проверить формат (без создания):
-./MD_to_Files_v5.1.3.sh -d response.md /tmp/test
+./MD_to_Files.sh -d response.md /tmp/test
 
 # Создать проект:
-./MD_to_Files_v5.1.3.sh -v response.md ./мой_проект
+./MD_to_Files.sh -v response.md ./мой_проект
 
 # С резервной копией:
-./MD_to_Files_v5.1.3.sh -vb response.md ./мой_проект
+./MD_to_Files.sh -vb response.md ./мой_проект
 
 # С метаданными проекта:
-./MD_to_Files_v5.1.3.sh -vbP response.md ./мой_проект
+./MD_to_Files.sh -vbP response.md ./мой_проект
 ```
 
 ---
@@ -216,7 +219,7 @@ project/
 **Решение:** Маркер должен быть на строке 1 после забора, не после импортов
 
 **Проблема:** Ошибки с --help  
-**Решение:** Обновитесь до v5.1.3+
+**Решение:** Обновитесь до v6.0.1+
 
 ---
 
@@ -229,9 +232,9 @@ project/
    ↓
 3. Получите Ответ от LLM
    ↓
-4. Проверьте: ./MD_to_Files_v5.1.3.sh -d response.md /tmp/check
+4. Проверьте: ./MD_to_Files.sh -d response.md /tmp/check
    ↓
-5. Создайте: ./MD_to_Files_v5.1.3.sh response.md ./output
+5. Создайте: ./MD_to_Files.sh response.md ./output
    ↓
 6. Готово! → Проект создан
 ```
@@ -258,7 +261,7 @@ project/
 "Создайте Python Flask API"
 
 + ПРОМТ:
-"Отформатируйте для MD to Files Parser v5.1.3+: [выше]"
+"Отформатируйте для MD to Files Parser v6.0.1+: [выше]"
 
 = ОТВЕТ:
 ```text
@@ -345,12 +348,12 @@ grep "\[file name\]:" response.md     # проверить маркеры
 
 **Создать проект:**
 ```bash
-./MD_to_Files_v5.1.3.sh response.md ./output
+./MD_to_Files.sh response.md ./output
 ```
 
 **Больше опций:**
 ```bash
-./MD_to_Files_v5.1.3.sh --help
+./MD_to_Files.sh --help
 ```
 
 ---
@@ -373,13 +376,13 @@ alias md2-short='echo "Отформатируйте для MD to Files Parser...
 
 2. **Чейн команд**:
 ```bash
-curl api.example.com | ./MD_to_Files_v5.1.3.sh - ./output
+curl api.example.com | ./MD_to_Files.sh - ./output
 ```
 
 3. **Пакетная обработка**:
 ```bash
 for file in responses/*.md; do
-  ./MD_to_Files_v5.1.3.sh "$file" "output/$(basename $file .md)"
+  ./MD_to_Files.sh "$file" "output/$(basename $file .md)"
 done
 ```
 
@@ -395,7 +398,7 @@ done
 - Интерактивный CLI интерфейс
 - Обработка ошибок
 
-Отформатируйте ответ для MD to Files Parser (v5.1.3+):
+Отформатируйте ответ для MD to Files Parser (v6.0.1+):
 - Полное дерево проекта в начале с project/ корнем
 - Каждый файл помечен: [file name]: путь на первой строке
 - Идентификаторы языков (python, js и т.д.)
@@ -421,11 +424,11 @@ done
 - **Автор:** Mikhail Deynekin
 - **Email:** mid1977@gmail.com
 - **Сайт:** https://deynekin.com
-- **Лицензия:** MIT
+- **Лицензия:** PolyForm Noncommercial 1.0.0
 
 ---
 
 *Последнее обновление: 2025-10-30*  
-*Совместимость: MD to Files v5.1.3+*  
+*Совместимость: MD to Files v6.0.1+*  
 *Язык: Русский (RU)*
 

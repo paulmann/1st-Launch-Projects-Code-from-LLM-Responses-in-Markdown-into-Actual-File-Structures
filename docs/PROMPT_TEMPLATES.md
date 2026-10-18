@@ -5,7 +5,7 @@
 Use this as a suffix to any code generation request:
 
 ```
-Format your response for MD to Files Parser (v5.1.3+):
+Format your response for MD to Files Parser (v6.0.1+):
 - Start with complete project tree using ├──, │, └── symbols
 - Wrap project tree in code block with ```text notation
 - Each file's code block must have [file name]: path/to/file.ext as first line
@@ -66,7 +66,7 @@ Generate [PROJECT_DESCRIPTION] with the following constraints:
 - All dependencies explicitly listed
 - Cross-platform compatible paths
 
-## Response Format (MD to Files v5.1.3+)
+## Response Format (MD to Files v6.0.1+)
 Your response MUST follow this structure for automated project generation:
 
 ### 1. Executive Summary
@@ -248,7 +248,7 @@ Format response for MD to Files Parser:
 Use this if you're setting up a persistent system prompt:
 
 ```
-You are an expert code generator that produces responses optimized for automated processing by the MD to Files Parser (v5.1.3+).
+You are an expert code generator that produces responses optimized for automated processing by the MD to Files Parser (v6.0.1+).
 
 When generating code projects, always:
 
@@ -305,7 +305,7 @@ curl -X POST https://api.openai.com/v1/chat/completions \
   }' > response.md
 
 # Process with MD to Files
-./MD_to_Files_v5.1.3.sh response.md ./generated_project
+./MD_to_Files.sh response.md ./generated_project
 ```
 
 ### Use with Claude API
@@ -315,13 +315,13 @@ curl -X POST https://api.openai.com/v1/chat/completions \
 cat > request.txt << 'EOF'
 [Your project requirements]
 
-Format for MD to Files Parser v5.1.3+:
+Format for MD to Files Parser v6.0.1+:
 [include appropriate prompt variant above]
 EOF
 
 # Send request and process
 claude-cli request.txt > response.md
-./MD_to_Files_v5.1.3.sh -v response.md ./project
+./MD_to_Files.sh -v response.md ./project
 ```
 
 ### Use with Local LLM (Ollama)
@@ -363,7 +363,7 @@ blocks=$(grep -c "^\\`\\`\\`" "$response_file" || echo "0")
 echo "✓ Found $((blocks/2)) code blocks"
 
 # Try dry-run
-./MD_to_Files_v5.1.3.sh -d "$response_file" /tmp/validate > /dev/null 2>&1
+./MD_to_Files.sh -d "$response_file" /tmp/validate > /dev/null 2>&1
 [ $? -eq 0 ] && echo "✓ Valid format" || echo "✗ Format errors"
 ```
 
@@ -376,7 +376,7 @@ echo "✓ Found $((blocks/2)) code blocks"
 ```
 Generate a [PROJECT_TYPE] with these features: [list].
 
-Format for MD to Files v5.1.3+:
+Format for MD to Files v6.0.1+:
 - Show project tree
 - Each file in code block with [file name]: marker
 - Include requirements and setup
@@ -395,7 +395,7 @@ Must include:
 - Configuration and deployment files  
 - Comprehensive README
 
-Format for MD to Files Parser v5.1.3+
+Format for MD to Files Parser v6.0.1+
 ```
 
 **Best for**: Web apps, APIs, microservices
@@ -411,7 +411,7 @@ Show:
 - What changed (add comments)
 - Migration guide
 
-Optimize for MD to Files v5.1.3+
+Optimize for MD to Files v6.0.1+
 ```
 
 **Best for**: Code improvements, restructuring
@@ -425,7 +425,7 @@ Create code with embedded documentation:
 - README with examples
 - Setup instructions
 
-Format for MD to Files v5.1.3+
+Format for MD to Files v6.0.1+
 ```
 
 **Best for**: Libraries, SDKs, frameworks
@@ -482,5 +482,5 @@ Verify that:
 ---
 
 *Last Updated: 2025-10-30*  
-*Compatible with: MD to Files v5.1.3+*
+*Compatible with: MD to Files v6.0.1+*
 

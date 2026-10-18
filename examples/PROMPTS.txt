@@ -8,7 +8,7 @@ USE THIS FILE: Copy any prompt below and paste directly into your LLM request
 PROMPT #1: MINIMAL (Fastest)
 ===============================================================================
 
-Format for MD to Files Parser (v5.1.3+):
+Format for MD to Files Parser (v6.0.1+):
 - Complete project tree with project/ root
 - Each file marked: [file name]: path on first line
 - Language identifiers (python, js, etc.)
@@ -17,7 +17,7 @@ Format for MD to Files Parser (v5.1.3+):
 PROMPT #2: SHORT (Recommended)
 ===============================================================================
 
-Format your response for MD to Files Parser (v5.1.3+):
+Format your response for MD to Files Parser (v6.0.1+):
 - Start with complete project tree using ├──, │, └── symbols
 - Wrap project tree in code block with ```text notation
 - Each file's code block must have [file name]: path/to/file.ext as first line
@@ -211,7 +211,7 @@ Show:
 - What changed (add comments highlighting modifications)
 - Migration guide if applicable
 
-Format as MD to Files Parser v5.1.3+:
+Format as MD to Files Parser v6.0.1+:
 ```text
 project/
 [complete tree]
@@ -308,19 +308,19 @@ QUICK COMMAND REFERENCE
 ===============================================================================
 
 Test format (dry-run):
-./MD_to_Files_v5.1.3.sh -d response.md /tmp/test
+./MD_to_Files.sh -d response.md /tmp/test
 
 Create project:
-./MD_to_Files_v5.1.3.sh response.md ./my_project
+./MD_to_Files.sh response.md ./my_project
 
 With backup:
-./MD_to_Files_v5.1.3.sh -vb response.md ./my_project
+./MD_to_Files.sh -vb response.md ./my_project
 
 With metadata:
-./MD_to_Files_v5.1.3.sh -vbP response.md ./my_project
+./MD_to_Files.sh -vbP response.md ./my_project
 
 Verbose (debug):
-./MD_to_Files_v5.1.3.sh -v response.md ./my_project
+./MD_to_Files.sh -v response.md ./my_project
 
 ===============================================================================
 COMMON MISTAKES TO AVOID
@@ -417,7 +417,7 @@ Features:
 - Pydantic models
 - Authentication endpoints
 
-Format for MD to Files Parser (v5.1.3+):
+Format for MD to Files Parser (v6.0.1+):
 - Complete project tree with project/ root
 - Each file marked with [file name]: path on first line
 - Include all configuration and dependencies
@@ -449,7 +449,7 @@ Problem: Tree syntax error
 VERSION INFO
 ===============================================================================
 
-Compatible with: MD to Files v5.1.3+
+Compatible with: MD to Files v6.0.1+
 Document version: 1.0
 Last updated: 2025-10-30
 Author: Mikhail Deynekin
@@ -467,7 +467,7 @@ Save this file! Use it as reference for all your code generation requests.
 Copy any prompt from above and paste into your LLM request.
 Add specific details for your project.
 Receive perfectly formatted response.
-Run: ./MD_to_Files_v5.1.3.sh response.md ./output
+Run: ./MD_to_Files.sh response.md ./output
 Done!
 
 ===============================================================================
