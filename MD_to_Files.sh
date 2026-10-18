@@ -5,7 +5,7 @@
 # Author: Mikhail Deynekin (https://deynekin.com)
 # Email: mid1977@gmail.com
 # Date: 2025-10-31
-# License: MIT
+# License: PolyForm Noncommercial 1.0.0
 #
 # Compatibility: bash 4.2+
 # Requirements: standard Unix tools (mkdir, find, grep, sed)
@@ -38,6 +38,11 @@ UPDATE_MODE=false
 FIND_ALL_STRUCTURES=false
 INTERACTIVE_MODE=false
 PROJECT_MODE="create"
+# Values resolved by parse_arguments(). They are globals on purpose: the
+# function must NOT run in a subshell, otherwise every flag it sets is lost.
+PARSED_INPUT=""
+PARSED_TARGET="."
+PARSED_SPECIAL=""
 # File operations
 LOG_FILE=""
 declare -a TEMP_FILES=()
@@ -125,8 +130,8 @@ log_progress() {
 # HELP & VERSION
 # ============================================================================
 show_help() {
+    printf 'MD to Files: LLM Code Projector v%s\n' "$SCRIPT_VERSION"
     cat << 'EOF'
-MD to Files: LLM Code Projector v5.1.9
 Professional-grade LLM markdown-to-project converter
 USAGE:
   MD_to_Files.sh [OPTIONS] INPUT_FILE [TARGET_DIR]
@@ -161,7 +166,7 @@ show_version() {
     cat << EOF
 MD to Files v${SCRIPT_VERSION}
 Author: ${SCRIPT_AUTHOR}
-License: MIT
+License: PolyForm Noncommercial 1.0.0
 Bash: ${BASH_VERSION}
 Transform LLM conversations into working code projects!
 EOF
@@ -175,11 +180,11 @@ parse_arguments() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
-                printf "%s\n" "--help"
+                PARSED_SPECIAL="--help"
                 return 0
                 ;;
             -V|--version)
-                printf "%s\n" "--version"
+                PARSED_SPECIAL="--version"
                 return 0
                 ;;
             -v|--verbose)
@@ -253,17 +258,18 @@ parse_arguments() {
         log_err "Input file is empty: $input_file"
         exit 1
     fi
-    if [[ ! -d "$target_dir" ]]; then
+    if [[ ! -d "$target_dir" ]] && [[ "$DRY_RUN" != true ]]; then
         if ! mkdir -p "$target_dir" 2>/dev/null; then
             log_err "Cannot create target directory: $target_dir"
             exit 1
         fi
     fi
-    if [[ ! -w "$target_dir" ]]; then
+    if [[ -d "$target_dir" ]] && [[ ! -w "$target_dir" ]]; then
         log_err "Cannot write to target directory: $target_dir"
         exit 1
     fi
-    printf "%s\t%s\n" "$input_file" "$target_dir"
+    PARSED_INPUT="$input_file"
+    PARSED_TARGET="$target_dir"
 }
 # ============================================================================
 # ENCODING DETECTION & HANDLING
@@ -373,8 +379,6 @@ extract_code_blocks() {
     local current_content=""
     local lang=""
     local line_num=0
-    local skip_next_line=false
-    local deepseek_format=false
     local last_header=""
     
     log_progress "Extracting code blocks from markdown..."
@@ -396,16 +400,10 @@ extract_code_blocks() {
                 lang="${BASH_REMATCH[1]}"
                 current_content=""
                 current_file=""
-                skip_next_line=false
-                deepseek_format=false
                 log_debug "Line $line_num: Opening code block (language: $lang)"
             else
                 in_code_block=0
                 if [[ -n "$current_file" ]] && [[ -n "$current_content" ]]; then
-                    # Remove the file marker line from content
-                    if [[ "$deepseek_format" == true ]]; then
-                        current_content="${current_content#*$'\n'}"
-                    fi
                     current_content="${current_content%$'\n'}"
                     CODE_BLOCKS["$current_file"]="$current_content"
                     ((STATS_BLOCKS_EXTRACTED++))
@@ -429,8 +427,6 @@ extract_code_blocks() {
                 current_file=""
                 current_content=""
                 lang=""
-                skip_next_line=false
-                deepseek_format=false
             fi
             continue
         fi
@@ -443,7 +439,6 @@ extract_code_blocks() {
                 current_file=$(printf "%s\n" "${BASH_REMATCH[2]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                 current_file="${current_file#/}"
                 log_debug "Line $line_num: Found file reference (old format): $current_file"
-                skip_next_line=true
                 continue
             fi
             
@@ -465,9 +460,7 @@ extract_code_blocks() {
                         
                         current_file="$potential_file"
                         current_file="${current_file#/}"
-                        deepseek_format=true
                         log_debug "Line $line_num: Found file reference (DeepSeek format): $current_file"
-                        skip_next_line=true
                         continue
                     fi
                 fi
@@ -475,10 +468,6 @@ extract_code_blocks() {
             
             # If we have a file reference, collect content (skip the marker line)
             if [[ -n "$current_file" ]]; then
-                if [[ "$skip_next_line" == true ]]; then
-                    skip_next_line=false
-                    continue
-                fi
                 current_content+="$line"$'\n'
             else
                 # If no file reference found yet, still collect content (might be determined from header later)
@@ -490,9 +479,6 @@ extract_code_blocks() {
     # Handle final block if still open
     if [[ $in_code_block -eq 1 ]] && [[ -n "$current_content" ]]; then
         if [[ -n "$current_file" ]]; then
-            if [[ "$deepseek_format" == true ]]; then
-                current_content="${current_content#*$'\n'}"
-            fi
             current_content="${current_content%$'\n'}"
             CODE_BLOCKS["$current_file"]="$current_content"
             ((STATS_BLOCKS_EXTRACTED++))
@@ -784,23 +770,21 @@ find_existing_files() {
 # ============================================================================
 main() {
     check_bash_version
-    local parsed_args
-    parsed_args=$(parse_arguments "$@") || exit 1
+    parse_arguments "$@" || exit 1
 
-    # Check for special tokens returned by parse_arguments
-    if [[ "$parsed_args" == "--help" ]]; then
+    # Check for special tokens set by parse_arguments
+    if [[ "$PARSED_SPECIAL" == "--help" ]]; then
         show_help
         exit 0
     fi
-    if [[ "$parsed_args" == "--version" ]]; then
+    if [[ "$PARSED_SPECIAL" == "--version" ]]; then
         show_version
         exit 0
     fi
 
-    # If we get here, it's a normal run. Parse the actual file and directory.
-    local input_file target_dir
-    input_file=$(printf "%s" "$parsed_args" | cut -f1)
-    target_dir=$(printf "%s" "$parsed_args" | cut -f2)
+    # If we get here, it's a normal run.
+    local input_file="$PARSED_INPUT"
+    local target_dir="$PARSED_TARGET"
 
     log_info "Input: $input_file"
     log_info "Target: $target_dir"

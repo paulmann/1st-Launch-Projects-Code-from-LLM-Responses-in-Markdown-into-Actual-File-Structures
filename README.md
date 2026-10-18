@@ -1,28 +1,35 @@
-# MD_to_Files.sh
+# MD_to_Files.sh — LLM Code Projector
 
 [![Version](https://img.shields.io/badge/version-6.0.1-blue.svg)](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
-[![Shell](https://img.shields.io/badge/shell-bash%20%E2%89%A54.0-orange.svg)](https://www.gnu.org/software/bash/)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL-lightgrey.svg)]()
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg)](LICENSE)
+[![Shell: bash 4.0+](https://img.shields.io/badge/shell-bash%20%E2%89%A54.0-lightgrey.svg)](https://www.gnu.org/software/bash/)
+[![Platform: Linux | macOS | WSL](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL-lightgrey.svg)](#system-requirements)
 
-> 🚀 Transform LLM-generated Markdown documentation with code examples into production-ready project structures
+**Turn an LLM answer into a working project in one command.** `MD_to_Files.sh` reads a Markdown response from ChatGPT, Claude, Gemini or DeepSeek and recreates every fenced code block as a real file, with its directories, inside the project folder you choose — instead of copying dozens of files by hand.
 
-A powerful Bash utility that converts AI assistant responses (ChatGPT, Claude, DeepSeek, Gemini) containing project structures and code samples from Markdown format into fully functional file systems.
+```bash
+./MD_to_Files.sh chatgpt_response.md ./my-new-project
+```
+
+A single Bash script, no runtime dependencies, no package manager, no build step. It parses the response, resolves the target path for each code block, rejects unsafe paths, and writes the files with a summary you can check.
 
 ---
 
-## 📑 Table of Contents
+## 📑 Table of contents
 
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [Quick Start](#-quick-start)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Input Format Reference](#-input-format-reference)
-- [Instructions for LLM](#-instructions-for-llm)
-- [Command-Line Options](#-command-line-options)
+- [Why this tool exists](#-why-this-tool-exists)
+- [What it does](#-what-it-does)
+- [System requirements](#system-requirements)
+- [Quick start](#-quick-start)
+- [How it works](#-how-it-works)
+- [File marker formats](#-file-marker-formats)
+- [Directory trees](#-directory-trees)
+- [Command-line options](#-command-line-options)
 - [Examples](#-examples)
+- [Prompt template for LLMs](#-prompt-template-for-llms)
 - [Integration](#-integration)
 - [Troubleshooting](#-troubleshooting)
+- [FAQ](#-faq)
 - [Documentation](#-documentation)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -30,867 +37,407 @@ A powerful Bash utility that converts AI assistant responses (ChatGPT, Claude, D
 
 ---
 
-## 🎯 Overview
+## 🎯 Why this tool exists
 
-**MD_to_Files.sh** (also known as **LLM Code Projector**) solves a fundamental challenge in modern development: transforming theoretical architectural designs and code examples from AI assistants into real, working file structures.
+Ask any assistant for a project and you get a long Markdown answer: a directory tree, then a code block per file. The answer looks complete, but it is only text. Turning it into files means creating each folder, opening each block, pasting, saving under the right name — and repeating that for every file the model produced.
 
-### The Problem
+`MD_to_Files.sh` (also published as **LLM Code Projector**) automates exactly that step:
 
-You receive a perfect project structure with code examples in Markdown from ChatGPT or Claude. What's next? Manually creating each directory and file? Copying code one file at a time?
+| Without the script | With the script |
+|---|---|
+| 20–50 manual copy-paste operations per project | one command |
+| file names and nesting drift from the tree | paths come from the response itself |
+| encoding surprises (`cp1252`, `latin-1`) | converted to UTF-8 automatically |
+| `../../etc/passwd` style paths in model output | sanitized and rejected before writing |
+| no record of what happened | per-file log, `--dry-run`, `--log` |
 
-### The Solution
+It is a **deterministic post-processor for LLM output**, not another code generator: the model still writes the code, the script only materialises it.
+
+---
+
+## ✨ What it does
+
+- **Extracts fenced code blocks** with their language tag (` ```js `, ` ```python `, ` ```json ` …).
+- **Resolves the target path** from one of three marker formats — see [File marker formats](#-file-marker-formats).
+- **Creates nested directories** exactly as the paths require.
+- **Sanitizes paths**: strips terminal escape codes and `< > : " | ? *`, removes leading `/` and `../` segments, collapses `//`, truncates names above 255 characters.
+- **Normalises encoding**: `UTF-8` and ASCII pass through, `Windows-1252` / `ISO-8859-1` are converted with `iconv` when available.
+- **Writes safely**: existing files are skipped unless `--force` is given; `--backup` keeps a `.bak.YYYYmmdd_HHMMSS` copy before overwriting.
+- **Previews**: `--dry-run` prints every `mkdir` and every file it would write, and touches nothing.
+- **Reports**: per-file status lines, a summary of files/directories/code blocks, optional log file.
+- **Adds project metadata** with `--project`: a generated `README.md` (when none exists) and a `.llm-projector` file recording tool version, source file and generation date.
+
+**Who it is for:** developers prototyping from an assistant's answer, DevOps engineers
+generating project skeletons, technical writers turning documentation into runnable
+examples, educators preparing course material, and teams that want a repeatable
+starting point instead of ad-hoc copy-paste.
+
+---
+
+## System requirements
+
+| Component | Requirement |
+|---|---|
+| **OS** | Linux 3.2+, macOS 10.12+, Windows through WSL / Cygwin / Git Bash, BSD |
+| **Shell** | Bash 4.0 or newer (5.x recommended; macOS ships 3.2 — install a newer Bash) |
+| **Core utilities** | `mkdir`, `find`, `grep`, `sed`, `cat`, `printf` |
+| **Optional** | `file` (encoding detection), `iconv` (conversion), `readlink` (path resolution) |
+| **Disk** | about 100 MB free for generated projects |
+
+Check the environment in one line:
 
 ```bash
-# One simple command
-./MD_to_Files.sh chatgpt_response.md ./my-new-project
-
-# Your project is ready to use!
+bash --version && for c in mkdir find grep sed file iconv; do
+  command -v "$c" >/dev/null && echo "✓ $c" || echo "✗ $c"; done
 ```
 
-### Who It's For
-
-- 👨‍💻 **Developers** — rapid prototyping from AI responses
-- 🔧 **DevOps Engineers** — automated project template generation
-- 📝 **Technical Writers** — creating working examples from documentation
-- 👨‍🏫 **Educators** — preparing course materials with executable code
-- 👥 **Development Teams** — standardizing project initialization workflows
-
 ---
 
-## ✨ Key Features
+## 🚀 Quick start
 
-### 🌳 Intelligent Structure Parsing
-
-- ✅ Recognizes both ASCII and Unicode directory trees
-- ✅ Creates nested directories of any depth
-- ✅ Supports multiple tree notation formats
-- ✅ Automatically distinguishes between directories and files
-
-### 💻 Smart Code Handling
-
-- ✅ Extracts fenced code blocks from Markdown
-- ✅ Automatically associates code with corresponding files
-- ✅ Supports 30+ programming languages
-- ✅ Preserves formatting, indentation, and character encoding
-
-### 🔒 Security & Reliability
-
-- ✅ Path validation and path traversal prevention
-- ✅ Automatic encoding detection and conversion
-- ✅ Atomic file operations
-- ✅ Optional backup creation on updates
-
-### ⚙️ Flexible Configuration
-
-- ✅ Dry-run mode for previewing changes
-- ✅ Interactive selection from multiple structures
-- ✅ Batch processing of all detected structures
-- ✅ Comprehensive logging with verbose levels
-
----
-
-## 🚀 Quick Start
-
-### Installation (5 seconds)
+### 1. Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures.git
 cd 1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures
-
-# Make executable
 chmod +x MD_to_Files.sh
-
-# Verify installation
 ./MD_to_Files.sh --version
 ```
 
-### First Run (1 minute)
+No clone? Fetch the script directly:
 
-Create a simple Markdown file `test.md`:
+```bash
+curl -L -o ~/bin/md2files \
+  https://raw.githubusercontent.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures/main/MD_to_Files.sh
+chmod +x ~/bin/md2files
+```
+
+Optional shell alias:
+
+```bash
+echo 'alias md2files="$HOME/bin/md2files"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 2. Save an LLM answer as Markdown
 
 ````markdown
-# Test Project
-
-## Project Structure
-
-```
-test-app/
-├── src/
-│   └── app.js
-└── package.json
-```
+# Greeting CLI
 
 ## Implementation
 
-**src/app.js**
 ```javascript
-console.log('Hello from MD_to_Files!');
+// [file name]: src/index.js
+const name = process.argv[2] ?? 'world';
+console.log(`Hello, ${name}!`);
 ```
 
-**package.json**
 ```json
+// [file name]: package.json
 {
-  "name": "test-app",
+  "name": "greeting-cli",
   "version": "1.0.0"
 }
 ```
 ````
 
-Execute:
+### 3. Run it
 
 ```bash
-./MD_to_Files.sh test.md ./output
+./MD_to_Files.sh greeting.md ./greeting-cli
 ```
 
-Result:
+Real output (v6.0.1):
 
 ```
-✓ Created directory: output/test-app/src
-✓ Created file: output/test-app/src/app.js (38 bytes)
-✓ Created file: output/test-app/package.json (45 bytes)
-✓ Success! 2 files created in 1 directory
+ℹ️  INFO Input: greeting.md
+ℹ️  INFO Target: ./greeting-cli
+⏳ PROGRESS Extracting code blocks from markdown...
+✅ OK Extracted 2 code block(s)
+
+=== Creating Project Structure from Code Blocks ===
+Files to create:
+  package.json
+  src/index.js
+
+⏳ PROGRESS Creating project structure from code blocks...
+ℹ️  INFO Created directory: ./greeting-cli/src
+✅ OK Created with content: ./greeting-cli/package.json (50 bytes)
+✅ OK Created with content: ./greeting-cli/src/index.js (72 bytes)
+✅ OK Structure from code blocks completed:
+ℹ️  INFO  Directories: 1 | Files: 2
+✅ OK Project structure created successfully
+
+=== SUMMARY ===
+✅ OK Created: 2 files, 1 directories
+ℹ️  INFO Code blocks: 2 extracted, 2 applied
+✨ Project successfully created/updated!
 ```
+
+The exit code is `0` on success and `1` when no code blocks with a resolvable file path were found.
 
 ---
 
-## 📦 Installation
+## ⚙️ How it works
 
-### Method 1: Git Clone (Recommended)
+1. **Read** the Markdown file line by line (encoding normalised first).
+2. **Open/close fences** on every ```` ``` ```` line, remembering the language tag.
+3. **Resolve the target path** inside each block — the marker line is consumed and never written to the file.
+4. **Sanitize** the path and skip anything that tries to leave the target directory.
+5. **Create directories, then files**, printing one line per artefact and a final summary. `--dry-run` stops after step 4.
 
-```bash
-# Clone repository
-git clone https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures.git
-cd 1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures
-
-# Set executable permissions
-chmod +x MD_to_Files.sh
-
-# Create alias (optional)
-echo 'alias md2files="$(pwd)/MD_to_Files.sh"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### Method 2: Direct Download
-
-```bash
-# Using curl
-curl -L -o ~/bin/md2files.sh \
-  https://raw.githubusercontent.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures/main/MD_to_Files.sh
-
-chmod +x ~/bin/md2files.sh
-
-# Using wget
-wget -O ~/bin/md2files.sh \
-  https://raw.githubusercontent.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures/main/MD_to_Files.sh
-
-chmod +x ~/bin/md2files.sh
-```
-
-### Method 3: Global Installation
-
-```bash
-# Create symlink in PATH
-sudo ln -s $(pwd)/MD_to_Files.sh /usr/local/bin/md2files
-
-# Verify installation
-which md2files
-md2files --version
-```
-
-### System Requirements
-
-| Component | Requirement |
-|-----------|-------------|
-| **OS** | Linux 3.2+, macOS 10.12+, Windows (WSL/Cygwin), BSD |
-| **Shell** | Bash ≥ 4.0 (5.0+ recommended) |
-| **RAM** | 512 MB (1 GB for large projects) |
-| **Disk** | 100 MB free space |
-| **Core Utils** | `mkdir`, `touch`, `cat`, `grep`, `sed` |
-| **Optional** | `file`, `iconv`, `git` |
-
-### Dependency Check
-
-```bash
-# Check Bash version
-bash --version
-
-# Verify utilities
-for cmd in mkdir touch cat grep sed file iconv; do
-    command -v $cmd &>/dev/null && echo "✓ $cmd" || echo "✗ $cmd"
-done
-```
+The directory tree inside the response is **not** used to build folders — see the next two sections for why that matters.
 
 ---
 
-## 💡 Usage
+## 🏷️ File marker formats
 
-### Basic Syntax
+The script recognises three ways to say which file a code block belongs to.
 
-```bash
-./MD_to_Files.sh [OPTIONS] <input_file.md> [target_directory]
+### 1. Comment marker inside the block (recommended)
+
+```javascript
+// [file name]: src/app.js
+console.log('hello');
 ```
 
-### Simple Examples
+Also accepted with `#`, `--` and `REM` prefixes, for Python, SQL/Lua and batch examples:
 
-```bash
-# Generate in current directory
-./MD_to_Files.sh structure.md
-
-# Generate in specified directory
-./MD_to_Files.sh structure.md ./my-project
-
-# Preview changes (dry-run)
-./MD_to_Files.sh -d structure.md ./preview
-
-# Update existing project
-./MD_to_Files.sh -U structure.md ./existing-project
-
-# Create with project metadata
-./MD_to_Files.sh -P structure.md ./professional-project
-
-# Interactive structure selection
-./MD_to_Files.sh -i multi_structures.md ./output
-
-# Process all structures in file
-./MD_to_Files.sh -a documentation.md ./batch-output
+```python
+# [file name]: app/main.py
+print('hello')
 ```
 
-### Operation Modes
+### 2. Bare path on the first line of the block
 
-| Mode | Option | Description |
-|------|--------|-------------|
-| **Create** | (default) | Creates new file structure |
-| **Update** | `-U`, `--update` | Updates existing files |
-| **Project** | `-P`, `--project` | Creates with README and metadata |
-| **Interactive** | `-i`, `--ask` | Select from multiple structures |
-| **Batch** | `-a`, `--find-all` | Process all structures |
-| **Dry-run** | `-d`, `--dry-run` | Simulate without changes |
-
-### Additional Options
-
-| Option | Long Form | Description |
-|--------|-----------|-------------|
-| `-n N` | `--tree-number N` | Process structure number N |
-| `-C` | `--no-code` | Create empty files without code |
-| `-f` | `--force` | Overwrite without confirmation |
-| `-b` | `--backup` | Create backup copies |
-| `-v` | `--verbose` | Detailed output |
-| `-l FILE` | `--log FILE` | Write to log file |
-| `-h` | `--help` | Show help message |
-| `-V` | `--version` | Display version |
-
-### Option Combinations
-
-```bash
-# Safe update with backups and logging
-./MD_to_Files.sh -U -b -v -l update.log structure.md ./project
-
-# Batch processing in project mode
-./MD_to_Files.sh -a -P documentation.md ./projects
-
-# Force update without code extraction
-./MD_to_Files.sh -U -f -C skeleton.md ./scaffold
-
-# Select specific structure (3rd in file)
-./MD_to_Files.sh -n 3 variants.md ./variant-3
+```
+src/app.js
+console.log('hello');
 ```
 
----
-
-## 📝 Input Format Reference
-
-### Markdown Document Structure
-
-Recommended format:
+### 3. Heading with the path, directly above the block
 
 ````markdown
-# Project Name
+## src/app.js
 
-Brief description.
-
-## Project Structure
-
-```
-project-name/
-├── directory1/
-│   ├── file1.ext
-│   └── file2.ext
-└── file3.ext
-```
-
-## Implementation
-
-**directory1/file1.ext**
-```language
-// Code for file1
-```
-
-**directory1/file2.ext**
-```language
-// Code for file2
+```javascript
+console.log('hello');
 ```
 ````
 
-### Directory Tree Formats
+### What is *not* recognised
 
-**Unicode Box-Drawing (Recommended):**
+**Bold-only markers are not parsed.** Earlier versions of this README recommended `**src/app.js**` above a block; the parser never had a rule for it, so such blocks are ignored and the run ends with `No code blocks found`. Use one of the three formats above.
+
+When several blocks target the same path, the last one wins.
+
+---
+
+## 🌳 Directory trees
+
+A tree is still useful documentation for the human reading the response, and harmless for the script:
 
 ```
-my-project/
+greeting-cli/
 ├── src/
-│   ├── main.js
-│   ├── utils.js
-│   └── lib/
-│       └── helper.js
-├── tests/
-│   └── main.test.js
+│   └── index.js
 └── package.json
 ```
 
-**ASCII Tree:**
-
-```
-my-project/
-|-- src/
-|   |-- main.js
-|   `-- utils.js
-`-- package.json
-```
-
-**Simple Indentation:**
-
-```
-my-project/
-  src/
-    main.js
-    utils.js
-  package.json
-```
-
-### Code Blocks
-
-**Fenced Code Blocks with Language:**
-
-````markdown
-**src/app.js**
-```javascript
-const express = require('express');
-app.listen(3000);
-```
-
-**config/database.json**
-```json
-{
-  "host": "localhost",
-  "port": 5432
-}
-```
-````
-
-### Supported Languages
-
-JavaScript, TypeScript, Python, PHP, Java, C, C++, C#, Ruby, Go, Rust, Shell, Bash, HTML, CSS, SCSS, SQL, JSON, YAML, XML, Markdown, and more (30+ languages)
-
-### Code-to-File Association Methods
-
-**Method 1: Bold Marker (Recommended)**
-
-````markdown
-**src/controllers/userController.js**
-```javascript
-exports.getUser = (req, res) => {
-    res.json({ user: 'John' });
-};
-```
-````
-
-**Method 2: Section Header**
-
-````markdown
-## src/models/User.js
-
-```javascript
-class User {
-    constructor(name) { this.name = name; }
-}
-```
-````
-
-**Method 3: Label with Colon**
-
-````markdown
-File: config/database.js
-
-```javascript
-module.exports = { host: 'localhost' };
-```
-````
-
-**Priority:** Bold marker > Header > Label > Code comment
+Since v6.0.1 the script **builds the structure from the file paths in the code blocks** and ignores the tree section. This is deliberate: LLM trees frequently disagree with the code that follows (renamed files, extra folders), and creating both produced empty directories nobody asked for. Keep the tree for readability — the folders will be created from the paths.
 
 ---
 
-## 🤖 Instructions for LLM
+## 💻 Command-line options
 
-When generating responses that will be processed by MD_to_Files.sh, follow these specific formatting guidelines to ensure proper parsing:
-
-### Essential Format Requirements
-
-**1. Always include a clear project structure section:**
-```markdown
-## Project Structure
-
-```
-project-name/
-├── src/
-│   ├── main.js
-│   └── utils.js
-├── config/
-│   └── settings.json
-└── README.md
-```
+```bash
+./MD_to_Files.sh [OPTIONS] INPUT_FILE [TARGET_DIR]
 ```
 
-**2. Use proper file markers before code blocks:**
-```markdown
-**src/main.js**
-```javascript
-// Your code here
+`TARGET_DIR` defaults to the current directory and is created if missing.
+
+| Option | Long form | Effect |
+|---|---|---|
+| `-h` | `--help` | Show help |
+| `-V` | `--version` | Show version, author, license, Bash version |
+| `-v` | `--verbose` | Debug output for every parsed line and resolved path |
+| `-d` | `--dry-run` | Print planned `mkdir`/file writes, change nothing |
+| `-f` | `--force` | Overwrite existing files instead of skipping them |
+| `-b` | `--backup` | Keep `.bak.YYYYmmdd_HHMMSS` before overwriting |
+| `-l FILE` | `--log FILE` | Append a detailed log to `FILE` |
+| `-U` | `--update` | Update existing files whose content differs |
+| `-P` | `--project` | Also generate `README.md` and `.llm-projector` metadata |
+| `-C` | `--no-code` | Skip code extraction (kept for compatibility, see below) |
+| `-a` | `--all` | Reserved, no effect in 6.0.x |
+| `-i` | `--interactive` | Reserved, no effect in 6.0.x |
+
+**Notes on the last three.** `--no-code` disables the only source of file paths, so a run with `-C` ends with `No code blocks found`; it stays in the CLI for backwards compatibility. `--all` and `--interactive` were meaningful when the tool still parsed several trees per document; in 6.0.x one document produces one set of files and both flags are accepted but ignored.
+
+Common combinations:
+
+```bash
+# Preview a risky update
+./MD_to_Files.sh -d -v response.md ./project
+
+# Update with backups and a log
+./MD_to_Files.sh -U -b -l update.log response.md ./project
+
+# Create with metadata, overwriting generated files
+./MD_to_Files.sh -P -f response.md ./project
 ```
-
-**config/settings.json**
-```json
-{
-  "config": "value"
-}
-```
-```
-
-**3. Include the complete file path in markers:**
-- ✅ **Correct:** `**src/components/Header.js**`
-- ❌ **Incorrect:** `**Header.js**`
-
-### LLM Prompt Template
-
-When asking an LLM to generate code, use this template:
-
-```
-Create a complete project structure for [your project description]. 
-Format the response so it can be processed by MD_to_Files.sh:
-
-# Project Name
-
-[Brief project description]
-
-## Project Structure
-
-```
-[Use Unicode box-drawing characters for the tree structure]
-```
-
-## Implementation
-
-[For each file in the structure, include:]
-
-**full/path/to/file.ext**
-```language
-[Complete file content]
-```
-
-Ensure that:
-1. Every file in the structure has corresponding code
-2. File paths in markers match exactly with the tree structure
-3. Use proper language identifiers in code blocks
-4. Include all necessary configuration files
-```
-
-### Complete Example for LLM
-
-````markdown
-# Express API Server
-
-A simple Express.js REST API server with user management.
-
-## Project Structure
-
-```
-express-api/
-├── src/
-│   ├── app.js
-│   ├── routes/
-│   │   └── users.js
-│   ├── controllers/
-│   │   └── userController.js
-│   └── config/
-│       └── database.js
-├── package.json
-└── README.md
-```
-
-## Implementation
-
-**src/app.js**
-```javascript
-const express = require('express');
-const userRoutes = require('./routes/users');
-
-const app = express();
-app.use(express.json());
-app.use('/api/users', userRoutes);
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
-```
-
-**src/routes/users.js**
-```javascript
-const express = require('express');
-const router = express.Router();
-const userController = require('../controllers/userController');
-
-router.get('/', userController.getAllUsers);
-router.get('/:id', userController.getUserById);
-router.post('/', userController.createUser);
-
-module.exports = router;
-```
-
-**src/controllers/userController.js**
-```javascript
-const users = [];
-
-exports.getAllUsers = (req, res) => {
-    res.json({ users });
-};
-
-exports.getUserById = (req, res) => {
-    const user = users.find(u => u.id === parseInt(req.params.id));
-    if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-    }
-    res.json({ user });
-};
-
-exports.createUser = (req, res) => {
-    const { name, email } = req.body;
-    const newUser = {
-        id: users.length + 1,
-        name,
-        email
-    };
-    users.push(newUser);
-    res.status(201).json({ user: newUser });
-};
-```
-
-**src/config/database.js**
-```javascript
-module.exports = {
-    development: {
-        host: 'localhost',
-        port: 5432,
-        database: 'express_api_dev'
-    },
-    production: {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT,
-        database: process.env.DB_NAME
-    }
-};
-```
-
-**package.json**
-```json
-{
-  "name": "express-api",
-  "version": "1.0.0",
-  "description": "Express.js REST API server",
-  "main": "src/app.js",
-  "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
-  },
-  "dependencies": {
-    "express": "^4.18.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.0"
-  }
-}
-```
-
-**README.md**
-```markdown
-# Express API Server
-
-A simple REST API built with Express.js.
-
-## Setup
-
-1. Install dependencies: `npm install`
-2. Start server: `npm run dev`
-3. Access API at: `http://localhost:3000`
-```
-````
-
-### Common LLM Mistakes to Avoid
-
-1. **Missing file markers:** Don't just show code without indicating which file it belongs to
-2. **Inconsistent paths:** Ensure file paths in markers exactly match the tree structure
-3. **Incomplete structure:** Include all directories and files mentioned in the tree
-4. **Missing configuration:** Don't forget package.json, .env, or other config files
-5. **No language identifiers:** Always specify the programming language in code blocks
-
-### Advanced LLM Instructions
-
-For complex projects, you can add:
-
-```markdown
-Please also include:
-- Environment configuration files (.env.example)
-- Build scripts and configuration
-- Test files and setup
-- Documentation files
-- Git ignore files
-```
-
-By following these instructions, LLM responses will be perfectly formatted for automatic processing with MD_to_Files.sh.
 
 ---
 
 ## 🎬 Examples
 
-### Example 1: React Application
+### Node.js CLI (verified output)
 
-**Create `react_app.md`:**
+Input and output are shown in [Quick start](#-quick-start).
+
+### React application
 
 ````markdown
 # React Application
 
-## Project Structure
+## src/index.js
 
-```
-react-app/
-├── public/
-│   └── index.html
-├── src/
-│   ├── index.js
-│   ├── App.js
-│   └── components/
-│       ├── Header.js
-│       └── Footer.js
-└── package.json
-```
-
-## Implementation
-
-**src/index.js**
 ```javascript
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 ```
 
-**src/App.js**
+## src/App.js
+
 ```javascript
-import React from 'react';
-import Header from './components/Header';
-import Footer from './components/Footer';
-
-function App() {
-  return (
-    <div className="App">
-      <Header />
-      <main><h1>Welcome to React</h1></main>
-      <Footer />
-    </div>
-  );
+export default function App() {
+  return <h1>Hello from React</h1>;
 }
-
-export default App;
 ```
 
-**src/components/Header.js**
-```javascript
-import React from 'react';
+## package.json
 
-function Header() {
-  return <header><h2>My React App</h2></header>;
-}
-
-export default Header;
-```
-
-**src/components/Footer.js**
-```javascript
-import React from 'react';
-
-function Footer() {
-  return <footer><p>&copy; 2025 My App</p></footer>;
-}
-
-export default Footer;
-```
-
-**package.json**
 ```json
 {
   "name": "react-app",
   "version": "1.0.0",
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build"
-  }
+  "dependencies": { "react": "^18.2.0", "react-dom": "^18.2.0" }
 }
 ```
 ````
 
-**Execute:**
-
 ```bash
 ./MD_to_Files.sh -P react_app.md ./my-react-app
-cd my-react-app/react-app
-npm install
-npm start
+cd my-react-app && npm install && npm start
 ```
 
-### Example 2: Python Course
-
-````markdown
-# Python Course
-
-## Lesson 1 Structure
-
-```
-lesson-1/
-├── hello.py
-└── README.md
-```
-
-## Implementation
-
-**hello.py**
-```python
-print("Hello, World!")
-```
-
-**README.md**
-```markdown
-# Lesson 1: Hello World
-Your first Python program.
-```
-
-## Lesson 2 Structure
-
-```
-lesson-2/
-├── variables.py
-└── README.md
-```
-
-## Implementation
-
-**variables.py**
-```python
-name = "Student"
-age = 20
-print(f"Name: {name}, Age: {age}")
-```
-
-**README.md**
-```markdown
-# Lesson 2: Variables
-Working with variables in Python.
-```
-````
-
-**Execute:**
+### Python course, several documents
 
 ```bash
-./MD_to_Files.sh -a python_course.md ./course-materials
+./MD_to_Files.sh lesson-1.md ./course-materials
+./MD_to_Files.sh lesson-2.md ./course-materials
 ```
+
+Each run only adds what its own document contains; existing files are left untouched without `--force`.
+
+### Updating an existing project
+
+```bash
+# Files that differ get the new content, identical ones are reported as skipped
+./MD_to_Files.sh -U -b response-v2.md ./existing-project
+```
+
+---
+
+## 🤖 Prompt template for LLMs
+
+Paste this into the request so the answer is parseable on the first try:
+
+````text
+Format the answer so MD_to_Files.sh can turn it into files:
+
+1. Start with "# <Project name>" and a one-paragraph description.
+2. Add a "## Project structure" section with a tree in a ``` fence (for humans).
+3. For every file, add a heading with its full relative path, then one fenced code block:
+
+## path/to/file.ext
+
+```<language>
+<complete file content>
+```
+
+Rules:
+- every path is relative to the project root, no leading slash;
+- use the same path in the heading and in the tree;
+- one code block per file, complete content, no placeholders;
+- include configuration files (package.json, .env.example, .gitignore).
+````
+
+What to avoid:
+
+1. **Bold-only markers** (`**src/app.js**`) — not recognised.
+2. **Several files in one block** — only one path can be attached to a block.
+3. **Elided content** (`// ... rest of the file`) — the script writes exactly what the model produced.
+4. **Paths with `..`** — stripped by the sanitizer.
+5. **Non-UTF-8 output** — readable, but only `cp1252`/`latin-1` are converted automatically.
 
 ---
 
 ## 🔗 Integration
 
-### Git Hooks
-
-**Pre-commit Hook for Validation:**
+### Git pre-commit validation
 
 ```bash
-#!/bin/bash
-# .git/hooks/pre-commit
-
-for md_file in $(git diff --cached --name-only | grep '\.md$'); do
-    if [[ -f "$md_file" ]]; then
-        if ! ./tools/MD_to_Files.sh -d "$md_file" /tmp/test &>/dev/null; then
-            echo "❌ Invalid structure in $md_file"
-            exit 1
-        fi
-    fi
+#!/usr/bin/env bash
+# .git/hooks/pre-commit — reject Markdown that cannot be materialised
+set -e
+for md in $(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true); do
+    ./MD_to_Files.sh -d "$md" /tmp/md2files-check >/dev/null || {
+        echo "❌ $md has no parsable code blocks"; exit 1; }
 done
-
-echo "✅ All Markdown structures are valid"
 ```
 
 ### GitHub Actions
 
 ```yaml
-name: Generate Project Structure
+name: Generate project from Markdown
 
 on:
   push:
-    paths:
-      - 'docs/project-structure.md'
+    paths: ['docs/project-structure.md']
 
 jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Generate project files
+      - uses: actions/checkout@v4
+      - name: Generate
         run: |
-          chmod +x ./tools/MD_to_Files.sh
-          ./tools/MD_to_Files.sh -P docs/project-structure.md ./generated
-          
-      - name: Commit generated files
+          chmod +x ./MD_to_Files.sh
+          ./MD_to_Files.sh -P docs/project-structure.md ./generated
+      - name: Commit
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add generated/
-          git commit -m "Auto-generate project structure" || true
+          git commit -m "chore: regenerate from Markdown" || true
           git push
 ```
 
-### VS Code Task
+### VS Code task
 
 ```json
 {
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Generate from Markdown",
+      "label": "Generate files from Markdown",
       "type": "shell",
-      "command": "./tools/MD_to_Files.sh",
-      "args": [
-        "${file}",
-        "${workspaceFolder}/generated"
-      ],
-      "presentation": {
-        "reveal": "always"
-      }
+      "command": "${workspaceFolder}/MD_to_Files.sh",
+      "args": ["${file}", "${workspaceFolder}/generated"],
+      "presentation": { "reveal": "always" }
     }
   ]
 }
@@ -900,186 +447,119 @@ jobs:
 
 ## 🔧 Troubleshooting
 
-### Common Issues
+| Symptom | Cause | Fix |
+|---|---|---|
+| `No code blocks found - cannot create project structure` | no fence carries a resolvable path, or only bold markers were used | add `// [file name]: path`, a bare path line, or a `## path` heading |
+| `File exists, skipping: …` | target already has the file | `--force`, optionally with `--backup` |
+| Garbled non-Latin text | input was not UTF-8 and not `cp1252`/`latin-1` | convert first: `iconv -f cp1251 -t utf-8 in.md > out.md` |
+| `Bash 4.0+ required` | macOS ships Bash 3.2 | `brew install bash`, then use that binary |
+| `--dry-run` created nothing (expected) | dry-run never writes | run without `-d` |
+| Empty file in the output | the block had a marker but no content | check the fence in the source Markdown |
 
-#### Error: "No tree structures found"
-
-**Cause:** Markdown doesn't contain recognizable directory tree.
-
-**Solution:**
-- Ensure you have a clear "Project Structure" section
-- Use proper Unicode box-drawing characters
-- Include the structure in code blocks or plain text
-
-#### Error: "Code blocks not associated with files"
-
-**Cause:** Missing file markers before code blocks.
-
-**Solution:**
-- Add file path markers like `**src/main.js**` before each code block
-- Ensure paths match exactly with the tree structure
-
-### Diagnostics
+Diagnostics:
 
 ```bash
-# Verbose output with logging
-./MD_to_Files.sh -v -l debug.log structure.md ./output
-
-# Search for errors in log
-grep -E "(ERROR|WARNING)" debug.log
-
-# Dry-run for verification
-./MD_to_Files.sh -d -v structure.md ./test
+./MD_to_Files.sh -d -v -l debug.log response.md ./preview
+grep -E "ERROR|WARN" debug.log
 ```
 
-### FAQ
+---
+
+## ❓ FAQ
 
 <details>
-<summary><b>Q: Why isn't code being extracted to files?</b></summary>
+<summary><b>Does it work with ChatGPT, Claude, Gemini and DeepSeek output?</b></summary>
 
-A: Verify file markers:
-
-```markdown
-# ✓ Correct
-**src/app.js**
-```javascript
-code
-```
-
-# ✗ Incorrect
-src/app.js  # Missing bold formatting
-```javascript
-code
-```
-```
+Yes. Any Markdown file with fenced code blocks works, regardless of which assistant produced it. The parser also understands DeepSeek's habit of putting the bare path on the first line of the block.
 </details>
 
 <details>
-<summary><b>Q: How to process multiple structures?</b></summary>
+<summary><b>Can it update a project that already exists?</b></summary>
 
-A: Use batch mode:
-
-```bash
-./MD_to_Files.sh -a multi_structures.md ./output
-```
+Yes — `-U` rewrites only the files whose content differs, `-b` keeps a timestamped backup of each file it touches, and `-d` shows the plan first.
 </details>
 
 <details>
-<summary><b>Q: Can I update only specific files?</b></summary>
+<summary><b>Does it need Node.js, Python or any runtime?</b></summary>
 
-A: Yes, use update mode:
+No. It is a Bash script using coreutils, `grep`, `sed` and, when available, `file`, `iconv` and `readlink`.
+</details>
 
-```bash
-./MD_to_Files.sh -U specific_files.md ./existing-project
-```
+<details>
+<summary><b>Why are directories missing from my tree in the output?</b></summary>
+
+Since 6.0.1 the tree is documentation only; folders come from the file paths in the code blocks. A folder that contains no file is not created.
+</details>
+
+<details>
+<summary><b>Is it safe to run on untrusted model output?</b></summary>
+
+Paths are sanitized: control characters, `< > : " | ? *`, leading `/` and `../` segments are removed, and files are written only inside `TARGET_DIR`. Use `--dry-run` first if you want to see the plan.
+</details>
+
+<details>
+<summary><b>Does it run on Windows?</b></summary>
+
+Through WSL, Cygwin or Git Bash. Native `cmd.exe`/PowerShell are not supported.
+</details>
+
+<details>
+<summary><b>What license applies?</b></summary>
+
+PolyForm Noncommercial License 1.0.0 — free for noncommercial use, commercial use requires a separate license. See [LICENSE](LICENSE).
 </details>
 
 ---
 
 ## 📚 Documentation
 
-### Comprehensive Guides
-
-- 📖 [Complete User Guide](docs/USER_GUIDE.md)
-- 🏗️ [Architecture & Logic](docs/ARCHITECTURE.md)
-- 🔌 [Integration & Automation](docs/INTEGRATION.md)
-- 💡 [Best Practices](docs/BEST_PRACTICES.md)
-- 🐛 [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
-
-### Additional Resources
-
-- [CHANGELOG](CHANGELOG.md) — Version history
-- [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) — Community guidelines
-- [CONTRIBUTING](CONTRIBUTING.md) — Contribution guide
-- [LICENSE](LICENSE) — MIT License
+| Document | What is inside |
+|---|---|
+| [docs/INDEX.md](docs/INDEX.md) | Map of the documentation set and reading paths |
+| [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) | One-page cheat sheet: marker syntax, checklist, common mistakes |
+| [docs/PROMPT_TEMPLATES.md](docs/PROMPT_TEMPLATES.md) | Copy-paste prompts for Python, JavaScript, full-stack and Docker projects |
+| [docs/PROMPT_GUIDE.md](docs/PROMPT_GUIDE.md) | Full reference on prompt formatting and validation |
+| [docs/EXAMPLES.md](docs/EXAMPLES.md) | Worked examples from request to generated project |
+| [docs/RUSSIAN_QUICK_START.md](docs/RUSSIAN_QUICK_START.md) | Краткая инструкция на русском |
+| [docs/PROMPTS.txt](docs/PROMPTS.txt) | The same prompts as plain text |
+| [docs/MANIFEST.md](docs/MANIFEST.md) | Description of the documentation package |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to propose a change |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community rules |
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Here's how you can help:
-
-### Ways to Contribute
-
-1. 🐛 **Report Bugs** — open an [issue](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures/issues)
-2. 💡 **Suggest Features** — create a feature request
-3. 📝 **Improve Documentation** — fix typos, add examples
-4. 💻 **Submit Pull Requests** — bug fixes and new features
-
-### Contribution Process
-
-```bash
-# 1. Fork the repository
-# 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures.git
-
-# 3. Create feature branch
-git checkout -b feature/amazing-feature
-
-# 4. Make changes and commit
-git commit -m "Add amazing feature"
-
-# 5. Push to your fork
-git push origin feature/amazing-feature
-
-# 6. Open Pull Request
-```
+Bug reports, prompt-format edge cases and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Useful reports include the input Markdown (or a minimal fragment), the command line, and the output of `--dry-run -v`.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+**PolyForm Noncommercial License 1.0.0.** Noncommercial use, modification and distribution are permitted under the terms in [LICENSE](LICENSE). Commercial use requires a separate license from the author.
 
-```
-MIT License
-
-Copyright (c) 2025 Paul Mann
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+Copyright (c) 2025–2026 Mikhail Deynekin.
 
 ---
 
 ## 📞 Contact
 
-### Author
+**Author:** Mikhail Deynekin
 
-**Mikhail Deynekin**
 - 🌐 Website: [deynekin.com](https://deynekin.com)
 - 📧 Email: [mid1977@gmail.com](mailto:mid1977@gmail.com)
 - 💼 LinkedIn: [linkedin.com/in/mikhail-deynekin](https://linkedin.com/in/mikhail-deynekin)
 
-### Project
+**Project:**
 
-- 🐙 **GitHub:** [1st-Launch-Projects-Code-from-LLM](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
-- 🐛 **Issues:** [Report a Problem](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures/issues)
-- 💬 **Discussions:** [Join Discussions](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures/discussions)
-
----
+- 🐙 Repository: [1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures)
+- 🐛 Issues: [report a problem](https://github.com/paulmann/1st-Launch-Projects-Code-from-LLM-Responses-in-Markdown-into-Actual-File-Structures/issues)
 
 <div align="center">
 
-**[⬆ Back to Top](#md_to_filessh)**
+**[⬆ Back to top](#md_to_filessh--llm-code-projector)**
 
-Made with ❤️ for the developer community
-
-**Happy Coding! 🚀**
+Made for people who are tired of copy-pasting code out of chat windows.
 
 </div>

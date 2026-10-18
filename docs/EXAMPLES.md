@@ -6,7 +6,7 @@
 ```
 Generate a simple Python command-line tool that converts temperature from Celsius to Fahrenheit.
 
-Format for MD to Files Parser v5.1.3+
+Format for MD to Files Parser v6.0.1+
 ```
 
 ### Expected Response Format
@@ -83,7 +83,7 @@ Follow the prompts to convert temperatures.
 
 ### Processing
 ```bash
-./MD_to_Files_v5.1.3.sh response.md ./temp_converter
+./MD_to_Files.sh response.md ./temp_converter
 
 # Result:
 # ✓ Created: temp_converter/temp_converter.py
@@ -105,7 +105,7 @@ Requirements:
 - Frontend: HTML/CSS with Bootstrap
 - Features: Add/delete/complete tasks, user login
 
-Format for MD to Files Parser v5.1.3+
+Format for MD to Files Parser v6.0.1+
 ```
 
 ### Expected Response Structure
@@ -203,7 +203,7 @@ class Task(db.Model):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TODO Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@6.0.1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container mt-5">
@@ -274,7 +274,7 @@ services:
 
 ### Processing
 ```bash
-./MD_to_Files_v5.1.3.sh -vbP response.md ./todo_app
+./MD_to_Files.sh -vbP response.md ./todo_app
 
 # Result:
 # ✓ Created: todo_app/backend/app.py
@@ -298,7 +298,7 @@ Generate a RESTful API using Express.js for a product catalog with:
 - Error handling
 - Request validation
 
-Format for MD to Files Parser v5.1.3+
+Format for MD to Files Parser v6.0.1+
 ```
 
 ### Expected Structure
@@ -438,7 +438,7 @@ module.exports = router;
 
 ### Processing
 ```bash
-./MD_to_Files_v5.1.3.sh -vbP response.md ./product_api
+./MD_to_Files.sh -vbP response.md ./product_api
 
 cd product_api
 npm install
@@ -457,7 +457,7 @@ Design a microservices architecture with:
 - Docker Compose for orchestration
 - Database migrations
 
-Format for MD to Files Parser v5.1.3+
+Format for MD to Files Parser v6.0.1+
 ```
 
 ### Resulting Tree
@@ -613,7 +613,7 @@ markers=$(grep -c "\[file name\]:" "$response_file" || echo "0")
 echo "✓ Found $markers file markers"
 
 # 4. Try parse
-./MD_to_Files_v5.1.3.sh -d "$response_file" /tmp/test_parse > /dev/null 2>&1
+./MD_to_Files.sh -d "$response_file" /tmp/test_parse > /dev/null 2>&1
 [ $? -eq 0 ] && echo "✓ Valid format" || echo "✗ Parse failed"
 
 echo "Test complete"
@@ -621,5 +621,5 @@ echo "Test complete"
 
 ---
 
-*Version 1.0 | 2025-10-30 | Compatible with MD to Files v5.1.3+*
+*Version 1.0 | 2025-10-30 | Compatible with MD to Files v6.0.1+*
 

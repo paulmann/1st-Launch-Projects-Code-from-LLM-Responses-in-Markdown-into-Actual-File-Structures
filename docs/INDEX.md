@@ -1,10 +1,10 @@
 # MD to Files Parser - Complete Documentation Index
 
-**Version:** 1.0  
-**Date:** 2025-10-30  
-**Compatibility:** MD to Files v5.1.3+  
+**Version:** 1.1  
+**Date:** 2026-10-19  
+**Compatibility:** MD to Files v6.0.1+  
 **Author:** Mikhail Deynekin  
-**License:** MIT
+**License:** PolyForm Noncommercial 1.0.0
 
 ---
 
@@ -112,19 +112,6 @@ This documentation package contains everything needed to master the MD to Files 
 
 ---
 
-### 5. **SUMMARY.md** 📋 REFERENCE (From Error Analysis)
-**Purpose:** Comprehensive overview of the entire solution  
-**Contains:**
-- Problem analysis
-- 7 ошибок identified and fixed
-- Solution implemented
-- Metrics and improvements
-- Recommendations
-
-**Use when:** Understanding the context and background
-
----
-
 ## 🎯 Usage Scenarios
 
 ### Scenario 1: "I just want to use this now"
@@ -169,6 +156,11 @@ Every response MUST include:
    ├── src/
    └── tests/
    ```
+
+   > **v6.0.1 and later:** the tree is documentation for the reader. The script creates
+   > folders from the file paths attached to code blocks, so a folder that contains no
+   > file is not created. Keep the tree — it does not hurt — but the markers below are
+   > what actually determines the output.
 
 2. **File Markers** (first line in each code block)
    ```
@@ -318,17 +310,18 @@ Hands-on practice (30 min)
 ## 💾 File Location Guide
 
 ```
-documentation/
+docs/
 ├── INDEX.md (this file)
 ├── QUICK_REFERENCE.md ⭐ START HERE
 ├── PROMPT_TEMPLATES.md (copy-paste prompts)
 ├── EXAMPLES.md (real-world examples)
 ├── PROMPT_GUIDE.md (complete reference)
-└── Supporting Documents
-    ├── SUMMARY.md (bugfix analysis)
-    ├── ERROR_ANALYSIS.md (detailed errors)
-    ├── TESTING_GUIDE.md (test cases)
-    └── MD_to_Files_FIXED.sh (fixed script v5.1.3)
+├── PROMPTS.txt (all prompts as plain text)
+├── RUSSIAN_QUICK_START.md (краткая инструкция)
+└── MANIFEST.md (this package, described)
+
+../MD_to_Files.sh (the script itself)
+../README.md       (installation and CLI reference)
 ```
 
 ---
@@ -381,7 +374,7 @@ See EXAMPLES.md "Example 5: Validation"
 
 ### For Troubleshooters
 1. QUICK_REFERENCE.md (Troubleshooting)
-2. ERROR_ANALYSIS.md (detailed issues)
+2. README.md (Troubleshooting and FAQ)
 3. PROMPT_GUIDE.md (validation)
 
 ---
@@ -407,7 +400,7 @@ After reading this documentation, you will:
 
 **Add this to every code generation request:**
 ```
-Format for MD to Files Parser (v5.1.3+):
+Format for MD to Files Parser (v6.0.1+):
 1. Complete project tree at start with project/ root
 2. Each file's code block has [file name]: path on line 1
 3. Language identifiers on code blocks (python, js, etc.)
@@ -415,7 +408,7 @@ Format for MD to Files Parser (v5.1.3+):
 
 **Then run:**
 ```bash
-./MD_to_Files_v5.1.3.sh response.md ./output
+./MD_to_Files.sh response.md ./output
 ```
 
 **Done!** Complete project created.
@@ -435,13 +428,13 @@ Format for MD to Files Parser (v5.1.3+):
 - **Author**: Mikhail Deynekin
 - **Email**: mid1977@gmail.com
 - **Website**: https://deynekin.com
-- **License**: MIT
+- **License**: PolyForm Noncommercial 1.0.0
 
 ---
 
 ## ✅ Checklist Before Starting
 
-- [ ] MD to Files script is at v5.1.3 or later
+- [ ] MD to Files script is at v6.0.1 or later
 - [ ] You have read QUICK_REFERENCE.md
 - [ ] You understand the 3 mandatory elements
 - [ ] You have a copy of relevant prompt template
@@ -452,5 +445,5 @@ Format for MD to Files Parser (v5.1.3+):
 **Happy coding! 🚀**
 
 *Last Updated: 2025-10-30*  
-*Compatibility: MD to Files v5.1.3+*
+*Compatibility: MD to Files v6.0.1+*
 

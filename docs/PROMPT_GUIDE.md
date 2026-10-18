@@ -3,7 +3,7 @@
 
 **Version:** 1.0  
 **Document Date:** 2025-10-30  
-**Compatibility:** MD to Files v5.1.3+  
+**Compatibility:** MD to Files v6.0.1+  
 **Author:** Mikhail Deynekin  
 **Website:** https://deynekin.com
 
@@ -61,6 +61,10 @@ Every LLM response using the MD to Files parser **MUST contain**:
 | **File Markers** | Link files to code blocks | `[file name]: path/to/file.ext` |
 | **Code Blocks** | Actual file content | Fenced code blocks with language identifier |
 | **Language Tags** | Enable syntax highlighting | Python: ` ```python `, JavaScript: ` ```js ` |
+
+> **Parser note (v6.0.1+):** the directory tree is documentation for the reader — the
+> script builds folders from the paths in the file markers. A tree alone produces no
+> files, and a folder that contains no marked file is not created.
 
 ### Optional Elements
 
@@ -262,7 +266,7 @@ Use appropriate language identifier for syntax highlighting:
 Add this prompt injection to your code generation request:
 
 ```
-Please format your response to be compatible with MD to Files parser (v5.1.3+).
+Please format your response to be compatible with MD to Files parser (v6.0.1+).
 
 Requirements:
 - Include a complete project directory tree at the beginning
@@ -287,13 +291,13 @@ Check response contains:
 
 ```bash
 # Dry-run to verify structure
-./MD_to_Files_v5.1.3.sh -d response.md ./output
+./MD_to_Files.sh -d response.md ./output
 
 # Create actual project
-./MD_to_Files_v5.1.3.sh -v response.md ./output
+./MD_to_Files.sh -v response.md ./output
 
 # With all options
-./MD_to_Files_v5.1.3.sh -vbP response.md ./project
+./MD_to_Files.sh -vbP response.md ./project
 ```
 
 ---
@@ -339,7 +343,7 @@ Please structure your response as follows:
 5. **Setup Instructions**: Step-by-step setup guide
 
 ## Compatibility Note
-Format response for compatibility with MD to Files Parser (v5.1.3+) to enable automated project structure generation.
+Format response for compatibility with MD to Files Parser (v6.0.1+) to enable automated project structure generation.
 ```
 
 ### Concrete Example Request
@@ -355,7 +359,7 @@ Requirements:
 - Full CRUD operations for todos
 - User authentication endpoints
 
-Format response for MD to Files Parser (v5.1.3+):
+Format response for MD to Files Parser (v6.0.1+):
 - Include project tree at start
 - Each file in code block with [file name]: path/to/file.ext marker
 - Production-ready code with error handling
@@ -520,10 +524,10 @@ import os
 
 **Symptom**: Help text or version repeats multiple times with errors
 
-**Solution**: Update to version 5.1.3 or later:
+**Solution**: Update to version 6.0.1 or later:
 ```bash
-./MD_to_Files_v5.1.3.sh --help  # Should output once, cleanly
-./MD_to_Files_v5.1.3.sh --version  # Should output once, cleanly
+./MD_to_Files.sh --help  # Should output once, cleanly
+./MD_to_Files.sh --version  # Should output once, cleanly
 ```
 
 ---
@@ -545,16 +549,16 @@ jobs:
       
       - name: Download MD to Files
         run: |
-          wget https://raw.githubusercontent.com/YOUR_REPO/MD_to_Files_v5.1.3.sh
-          chmod +x MD_to_Files_v5.1.3.sh
+          wget https://raw.githubusercontent.com/YOUR_REPO/MD_to_Files.sh
+          chmod +x MD_to_Files.sh
       
       - name: Validate Response Format
         run: |
-          ./MD_to_Files_v5.1.3.sh -d llm_response.md ./validate_output
+          ./MD_to_Files.sh -d llm_response.md ./validate_output
       
       - name: Generate Project
         run: |
-          ./MD_to_Files_v5.1.3.sh -vbP llm_response.md ./generated_project
+          ./MD_to_Files.sh -vbP llm_response.md ./generated_project
       
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
@@ -595,8 +599,8 @@ jobs:
 
 | MD to Files Version | Status | Support |
 |-------------------|--------|---------|
-| 5.1.3+ | ✅ Current | Full support for all features |
-| 5.1.2 | ⚠️ Legacy | Dupliation issues, use 5.1.3+ |
+| 6.0.1+ | ✅ Current | Full support for all features |
+| 6.0.1 | ⚠️ Legacy | Dupliation issues, use 6.0.1+ |
 | 5.1.0-5.1.1 | ❌ Deprecated | Critical bugs, upgrade required |
 
 ---
@@ -617,7 +621,7 @@ For issues, questions, or feature requests:
 - **Author**: Mikhail Deynekin
 - **Email**: mid1977@gmail.com
 - **Website**: https://deynekin.com
-- **License**: MIT
+- **License**: PolyForm Noncommercial 1.0.0
 
 ---
 
@@ -630,5 +634,5 @@ For issues, questions, or feature requests:
 ---
 
 *Last Updated: 2025-10-30*  
-*Compatibility: MD to Files v5.1.3+*
+*Compatibility: MD to Files v6.0.1+*
 

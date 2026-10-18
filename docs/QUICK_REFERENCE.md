@@ -5,7 +5,7 @@
 **What**: Standardized markdown format for LLM responses to enable automatic project generation  
 **Why**: Convert AI-generated code into working project structure in seconds  
 **How**: Add project tree, file markers, and code blocks to LLM response  
-**Result**: Run `./MD_to_Files_v5.1.3.sh response.md ./output` → complete project created
+**Result**: Run `./MD_to_Files.sh response.md ./output` → complete project created
 
 ---
 
@@ -25,6 +25,10 @@ project/
 - Use `├──`, `│`, `└──` symbols
 - Directories end with `/`
 - Wrap in triple backticks with `text` language
+
+> **v6.0.1+:** the tree is for the reader. Folders are created from the file paths in
+> the markers below; an empty folder from the tree is not created. Keep the tree, but
+> never rely on it alone — a response without markers produces no files.
 
 ### 2. File Markers (First Line in Code Block)
 
@@ -88,7 +92,7 @@ def hello():
 **Add this to ANY code request:**
 
 ```
-Format for MD to Files Parser (v5.1.3+):
+Format for MD to Files Parser (v6.0.1+):
 - Complete project tree at start with project/ root
 - Each file's code block marked with [file name]: path on line 1
 - Language identifiers on code blocks (python, js, etc.)
@@ -102,16 +106,16 @@ Format for MD to Files Parser (v5.1.3+):
 
 ```bash
 # Check if response is valid format
-./MD_to_Files_v5.1.3.sh -d response.md /tmp/test
+./MD_to_Files.sh -d response.md /tmp/test
 
 # Create actual project
-./MD_to_Files_v5.1.3.sh -v response.md ./my_project
+./MD_to_Files.sh -v response.md ./my_project
 
 # With backup of existing files
-./MD_to_Files_v5.1.3.sh -vb response.md ./my_project
+./MD_to_Files.sh -vb response.md ./my_project
 
 # With project metadata (README, etc.)
-./MD_to_Files_v5.1.3.sh -vbP response.md ./my_project
+./MD_to_Files.sh -vbP response.md ./my_project
 ```
 
 ---
@@ -209,7 +213,7 @@ project/
 **Solution**: Marker must be on line 1 after code fence, not after imports
 
 **Problem**: Duplication/errors with --help  
-**Solution**: Update to v5.1.3+
+**Solution**: Update to v6.0.1+
 
 ---
 
@@ -222,9 +226,9 @@ project/
    ↓
 3. Get Response from LLM
    ↓
-4. Validate: ./MD_to_Files_v5.1.3.sh -d response.md /tmp/check
+4. Validate: ./MD_to_Files.sh -d response.md /tmp/check
    ↓
-5. Generate: ./MD_to_Files_v5.1.3.sh response.md ./output
+5. Generate: ./MD_to_Files.sh response.md ./output
    ↓
 6. Done! → Complete project ready
 ```
@@ -251,7 +255,7 @@ REQUEST:
 "Generate a Python Flask API"
 
 + PROMPT SUFFIX:
-"Format for MD to Files Parser v5.1.3+: [see above]"
+"Format for MD to Files Parser v6.0.1+: [see above]"
 
 = RESPONSE:
 ```text
@@ -332,19 +336,19 @@ RESULT:
 
 **Format valid?**
 ```bash
-shellcheck -x MD_to_Files_v5.1.3.sh  # validate script
+shellcheck -x MD_to_Files.sh  # validate script
 grep "project/" response.md           # check tree
 grep "\[file name\]:" response.md     # check markers
 ```
 
 **Generate project:**
 ```bash
-./MD_to_Files_v5.1.3.sh response.md ./output
+./MD_to_Files.sh response.md ./output
 ```
 
 **More options:**
 ```bash
-./MD_to_Files_v5.1.3.sh --help
+./MD_to_Files.sh --help
 ```
 
 ---
@@ -363,18 +367,18 @@ grep "\[file name\]:" response.md     # check markers
 
 1. **Template it**: Save prompt suffix as shell function
    ```bash
-   alias md2files-prompt='echo "Format for MD to Files Parser v5.1.3+..."'
+   alias md2files-prompt='echo "Format for MD to Files Parser v6.0.1+..."'
    ```
 
 2. **Pipe responses**: Direct from API to parser
    ```bash
-   curl api.example.com | ./MD_to_Files_v5.1.3.sh - ./output
+   curl api.example.com | ./MD_to_Files.sh - ./output
    ```
 
 3. **Batch processing**: Multiple responses
    ```bash
    for file in responses/*.md; do
-     ./MD_to_Files_v5.1.3.sh "$file" "output/$(basename $file .md)"
+     ./MD_to_Files.sh "$file" "output/$(basename $file .md)"
    done
    ```
 
@@ -385,5 +389,5 @@ grep "\[file name\]:" response.md     # check markers
 
 ---
 
-**Version**: 1.0 | **Date**: 2025-10-30 | **Compatibility**: v5.1.3+
+**Version**: 1.0 | **Date**: 2025-10-30 | **Compatibility**: v6.0.1+
 
